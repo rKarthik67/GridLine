@@ -1,0 +1,32 @@
+# build output
+bin/
+obj/
+dist/
+node_modules/
+*.tsbuildinfo
+.vite/
+coverage/
+test-results/
+playwright-report/
+
+# certificates and env files
+.env
+.env.*
+*.pfx
+*.key
+
+# local uploads, offline NuGet cache, scratch
+# (appsettings.*.private.json and db backup/ are committed on purpose: keep the repository private)
+api/src/Gridline.Api/data/
+api/packages.zip
+_sync/
+_to_delete/
+
+# editors and OS
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+Thumbs.db
+.DS_Store

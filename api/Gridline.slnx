@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Gridline.Api/Gridline.Api.csproj" />
+    <File Path="src\appsettings.Development.private.json" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Gridline.Api.Tests/Gridline.Api.Tests.csproj" />
+  </Folder>
+</Solution>

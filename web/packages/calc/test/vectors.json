@@ -1,0 +1,906 @@
+{
+ "trades": [
+  {
+   "in": {
+    "tradeId": 1,
+    "adjustment": 140000,
+    "plugAmount": null,
+    "budgetValue": 8601000,
+    "bids": [
+     {
+      "bidId": 11,
+      "isPosted": true,
+      "isCarried": true,
+      "state": "posted",
+      "baseAmount": 8740000
+     },
+     {
+      "bidId": 12,
+      "isPosted": true,
+      "isCarried": false,
+      "state": "posted",
+      "baseAmount": 9120000
+     },
+     {
+      "bidId": 13,
+      "isPosted": true,
+      "isCarried": false,
+      "state": "posted",
+      "baseAmount": 9310000
+     }
+    ],
+    "lines": [
+     {
+      "lineId": 1,
+      "section": "tradeitem"
+     },
+     {
+      "lineId": 2,
+      "section": "tradeitem"
+     },
+     {
+      "lineId": 3,
+      "section": "tradeitem"
+     },
+     {
+      "lineId": 4,
+      "section": "tradeitem",
+      "skipInAdjustments": true
+     },
+     {
+      "lineId": 5,
+      "section": "zone"
+     }
+    ],
+    "answers": [
+     {
+      "lineId": 1,
+      "bidId": 12,
+      "kind": "amount",
+      "amount": 185000
+     },
+     {
+      "lineId": 2,
+      "bidId": 13,
+      "kind": "amount",
+      "amount": 142000
+     },
+     {
+      "lineId": 3,
+      "bidId": 12,
+      "kind": "amount",
+      "amount": 64000
+     },
+     {
+      "lineId": 3,
+      "bidId": 13,
+      "kind": "amount",
+      "amount": 98000
+     },
+     {
+      "lineId": 4,
+      "bidId": 11,
+      "kind": "amount",
+      "amount": 50000
+     },
+     {
+      "lineId": 5,
+      "bidId": 11,
+      "kind": "amount",
+      "amount": 999
+     },
+     {
+      "lineId": 2,
+      "bidId": 11,
+      "kind": "included"
+     }
+    ],
+    "zoneShares": {
+     "CS": 1
+    }
+   },
+   "out": {
+    "bids": [
+     {
+      "bidId": 11,
+      "scopeAdjustments": 0,
+      "totalAmount": 8740000,
+      "rank": 1
+     },
+     {
+      "bidId": 12,
+      "scopeAdjustments": 249000,
+      "totalAmount": 9369000,
+      "rank": 2
+     },
+     {
+      "bidId": 13,
+      "scopeAdjustments": 240000,
+      "totalAmount": 9550000,
+      "rank": 3
+     }
+    ],
+    "lowestValue": 8740000,
+    "carriedValue": 8880000,
+    "budgetDelta": 279000,
+    "usesPlug": false,
+    "zoneAmounts": {
+     "CS": 8880000
+    }
+   }
+  },
+  {
+   "in": {
+    "tradeId": 2,
+    "adjustment": 0,
+    "plugAmount": 3500000,
+    "budgetValue": 3400000,
+    "bids": [
+     {
+      "bidId": 21,
+      "isPosted": true,
+      "isCarried": false,
+      "state": "posted",
+      "baseAmount": 3460000
+     },
+     {
+      "bidId": 22,
+      "isPosted": true,
+      "isCarried": false,
+      "state": "disqualified",
+      "baseAmount": 3000000
+     },
+     {
+      "bidId": 23,
+      "isPosted": false,
+      "isCarried": false,
+      "state": "invited",
+      "baseAmount": null
+     }
+    ],
+    "zoneShares": {
+     "SW": 1
+    }
+   },
+   "out": {
+    "bids": [
+     {
+      "bidId": 21,
+      "scopeAdjustments": 0,
+      "totalAmount": 3460000,
+      "rank": 1
+     },
+     {
+      "bidId": 22,
+      "scopeAdjustments": 0,
+      "totalAmount": 3000000,
+      "rank": null
+     },
+     {
+      "bidId": 23,
+      "scopeAdjustments": 0,
+      "totalAmount": null,
+      "rank": null
+     }
+    ],
+    "lowestValue": 3460000,
+    "carriedValue": 3500000,
+    "budgetDelta": 100000,
+    "usesPlug": true,
+    "zoneAmounts": {
+     "SW": 3500000
+    }
+   }
+  }
+ ],
+ "summaries": [
+  {
+   "in": {
+    "tradesTotal": 1000000,
+    "genreqTotal": 100000,
+    "preconTotal": 50000,
+    "markups": [
+     {
+      "code": "reserveproject",
+      "name": "Project reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 2,
+      "sortOrder": 30
+     },
+     {
+      "code": "reservedesign",
+      "name": "Design reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 1.5,
+      "sortOrder": 40
+     },
+     {
+      "code": "reserveescalation",
+      "name": "Escalation reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 1,
+      "sortOrder": 50
+     },
+     {
+      "code": "bond",
+      "name": "P & P bond",
+      "appliesTo": "contract",
+      "ratePct": 0.75,
+      "sortOrder": 60
+     },
+     {
+      "code": "cover",
+      "name": "Works cover",
+      "appliesTo": "contract",
+      "ratePct": 0.18,
+      "sortOrder": 70
+     },
+     {
+      "code": "liability",
+      "name": "L & P insurance",
+      "appliesTo": "contract",
+      "ratePct": 1.1,
+      "sortOrder": 80
+     },
+     {
+      "code": "fee",
+      "name": "Fee",
+      "appliesTo": "contract",
+      "ratePct": 4.5,
+      "sortOrder": 90
+     },
+     {
+      "code": "salestax",
+      "name": "Retail sales tax",
+      "appliesTo": "tax",
+      "ratePct": 0.6,
+      "sortOrder": 100
+     }
+    ],
+    "indirect": [
+     {
+      "name": "Owner IT",
+      "amount": 10000
+     },
+     {
+      "name": "Permit fees",
+      "amount": 5000,
+      "outsideFee": true
+     }
+    ],
+    "grossArea": 10000,
+    "zoneShares": {
+     "A": 0.6,
+     "B": 0.4
+    }
+   },
+   "out": [
+    [
+     "Trades total",
+     1000000
+    ],
+    [
+     "Project overheads",
+     100000
+    ],
+    [
+     "Direct cost total",
+     1100000
+    ],
+    [
+     "Precon services",
+     50000
+    ],
+    [
+     "General conditions",
+     0
+    ],
+    [
+     "Project reserve",
+     22000
+    ],
+    [
+     "Design reserve",
+     16500
+    ],
+    [
+     "Escalation reserve",
+     11000
+    ],
+    [
+     "Subtotal",
+     1199500
+    ],
+    [
+     "P & P bond",
+     8996.25
+    ],
+    [
+     "Works cover",
+     2159.1
+    ],
+    [
+     "L & P insurance",
+     13194.5
+    ],
+    [
+     "Fee",
+     55523.24
+    ],
+    [
+     "Owner IT",
+     10000
+    ],
+    [
+     "Permit fees",
+     5000
+    ],
+    [
+     "Contract total",
+     1294373.09
+    ],
+    [
+     "Retail sales tax",
+     7766.24
+    ],
+    [
+     "Contract total with sales tax",
+     1302139.33
+    ]
+   ]
+  },
+  {
+   "in": {
+    "tradesTotal": 1000000,
+    "genreqTotal": 100000,
+    "preconTotal": 50000,
+    "markups": [
+     {
+      "code": "reserveproject",
+      "name": "Project reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 2,
+      "sortOrder": 30
+     },
+     {
+      "code": "reservedesign",
+      "name": "Design reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 1.5,
+      "sortOrder": 40
+     },
+     {
+      "code": "reserveescalation",
+      "name": "Escalation reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 1,
+      "sortOrder": 50
+     },
+     {
+      "code": "bond",
+      "name": "P & P bond",
+      "appliesTo": "contract",
+      "ratePct": 0.75,
+      "sortOrder": 60
+     },
+     {
+      "code": "cover",
+      "name": "Works cover",
+      "appliesTo": "contract",
+      "ratePct": 0.18,
+      "sortOrder": 70
+     },
+     {
+      "code": "liability",
+      "name": "L & P insurance",
+      "appliesTo": "contract",
+      "ratePct": 1.1,
+      "sortOrder": 80
+     },
+     {
+      "code": "fee",
+      "name": "Fee",
+      "appliesTo": "contract",
+      "ratePct": 4.5,
+      "sortOrder": 90
+     },
+     {
+      "code": "salestax",
+      "name": "Retail sales tax",
+      "appliesTo": "tax",
+      "ratePct": 0.6,
+      "sortOrder": 100
+     }
+    ],
+    "indirect": [
+     {
+      "name": "Owner IT",
+      "amount": 10000
+     },
+     {
+      "name": "Permit fees",
+      "amount": 5000,
+      "outsideFee": true
+     }
+    ],
+    "grossArea": 10000,
+    "zoneShares": {
+     "A": 0.6,
+     "B": 0.4
+    },
+    "options": {
+     "feeExcludes": [
+      "genreq",
+      "precon",
+      "reserves",
+      "bond",
+      "cover"
+     ],
+     "excludeGenreqFromDirect": false,
+     "reservePrecon": []
+    }
+   },
+   "out": [
+    [
+     "Trades total",
+     1000000
+    ],
+    [
+     "Project overheads",
+     100000
+    ],
+    [
+     "Direct cost total",
+     1100000
+    ],
+    [
+     "Precon services",
+     50000
+    ],
+    [
+     "General conditions",
+     0
+    ],
+    [
+     "Project reserve",
+     22000
+    ],
+    [
+     "Design reserve",
+     16500
+    ],
+    [
+     "Escalation reserve",
+     11000
+    ],
+    [
+     "Subtotal",
+     1199500
+    ],
+    [
+     "P & P bond",
+     8996.25
+    ],
+    [
+     "Works cover",
+     2159.1
+    ],
+    [
+     "L & P insurance",
+     13194.5
+    ],
+    [
+     "Fee",
+     46043.75
+    ],
+    [
+     "Owner IT",
+     10000
+    ],
+    [
+     "Permit fees",
+     5000
+    ],
+    [
+     "Contract total",
+     1284893.6
+    ],
+    [
+     "Retail sales tax",
+     7709.36
+    ],
+    [
+     "Contract total with sales tax",
+     1292602.96
+    ]
+   ]
+  },
+  {
+   "in": {
+    "tradesTotal": 1000000,
+    "genreqTotal": 100000,
+    "preconTotal": 50000,
+    "markups": [
+     {
+      "code": "reserveproject",
+      "name": "Project reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 2,
+      "sortOrder": 30
+     },
+     {
+      "code": "reservedesign",
+      "name": "Design reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 1.5,
+      "sortOrder": 40
+     },
+     {
+      "code": "reserveescalation",
+      "name": "Escalation reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 1,
+      "sortOrder": 50
+     },
+     {
+      "code": "bond",
+      "name": "P & P bond",
+      "appliesTo": "contract",
+      "ratePct": 0.75,
+      "sortOrder": 60
+     },
+     {
+      "code": "cover",
+      "name": "Works cover",
+      "appliesTo": "contract",
+      "ratePct": 0.18,
+      "sortOrder": 70
+     },
+     {
+      "code": "liability",
+      "name": "L & P insurance",
+      "appliesTo": "contract",
+      "ratePct": 1.1,
+      "sortOrder": 80
+     },
+     {
+      "code": "fee",
+      "name": "Fee",
+      "appliesTo": "contract",
+      "ratePct": 4.5,
+      "sortOrder": 90
+     },
+     {
+      "code": "salestax",
+      "name": "Retail sales tax",
+      "appliesTo": "tax",
+      "ratePct": 0.6,
+      "sortOrder": 100
+     }
+    ],
+    "indirect": [
+     {
+      "name": "Owner IT",
+      "amount": 10000
+     },
+     {
+      "name": "Permit fees",
+      "amount": 5000,
+      "outsideFee": true
+     }
+    ],
+    "grossArea": 10000,
+    "zoneShares": {
+     "A": 0.6,
+     "B": 0.4
+    },
+    "options": {
+     "feeExcludes": [
+      "bond"
+     ],
+     "excludeGenreqFromDirect": true,
+     "reservePrecon": [
+      "reserveproject",
+      "reservedesign"
+     ]
+    }
+   },
+   "out": [
+    [
+     "Trades total",
+     1000000
+    ],
+    [
+     "Project overheads",
+     100000
+    ],
+    [
+     "Direct cost total",
+     1000000
+    ],
+    [
+     "Precon services",
+     50000
+    ],
+    [
+     "General conditions",
+     0
+    ],
+    [
+     "Project reserve",
+     21000
+    ],
+    [
+     "Design reserve",
+     15750
+    ],
+    [
+     "Escalation reserve",
+     10000
+    ],
+    [
+     "Subtotal",
+     1196750
+    ],
+    [
+     "P & P bond",
+     8975.63
+    ],
+    [
+     "Works cover",
+     2154.15
+    ],
+    [
+     "L & P insurance",
+     13164.25
+    ],
+    [
+     "Fee",
+     54993.08
+    ],
+    [
+     "Owner IT",
+     10000
+    ],
+    [
+     "Permit fees",
+     5000
+    ],
+    [
+     "Contract total",
+     1291037.11
+    ],
+    [
+     "Retail sales tax",
+     7746.22
+    ],
+    [
+     "Contract total with sales tax",
+     1298783.33
+    ]
+   ]
+  },
+  {
+   "in": {
+    "tradesTotal": 1000000,
+    "genreqTotal": 100000,
+    "preconTotal": 50000,
+    "markups": [
+     {
+      "code": "reserveproject",
+      "name": "Project reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 2,
+      "sortOrder": 30
+     },
+     {
+      "code": "reservedesign",
+      "name": "Design reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 1.5,
+      "sortOrder": 40
+     },
+     {
+      "code": "reserveescalation",
+      "name": "Escalation reserve",
+      "appliesTo": "subtotal",
+      "ratePct": 1,
+      "sortOrder": 50
+     },
+     {
+      "code": "bond",
+      "name": "P & P bond",
+      "appliesTo": "contract",
+      "ratePct": 0.75,
+      "sortOrder": 60
+     },
+     {
+      "code": "cover",
+      "name": "Works cover",
+      "appliesTo": "contract",
+      "ratePct": 0.18,
+      "sortOrder": 70
+     },
+     {
+      "code": "liability",
+      "name": "L & P insurance",
+      "appliesTo": "contract",
+      "ratePct": 1.1,
+      "sortOrder": 80
+     },
+     {
+      "code": "fee",
+      "name": "Fee",
+      "appliesTo": "contract",
+      "ratePct": 4.5,
+      "sortOrder": 90
+     },
+     {
+      "code": "salestax",
+      "name": "Retail sales tax",
+      "appliesTo": "tax",
+      "ratePct": 0.6,
+      "sortOrder": 100
+     }
+    ],
+    "indirect": [
+     {
+      "name": "Owner IT",
+      "amount": 10000
+     },
+     {
+      "name": "Permit fees",
+      "amount": 5000,
+      "outsideFee": true
+     }
+    ],
+    "grossArea": 10000,
+    "zoneShares": {
+     "A": 0.6,
+     "B": 0.4
+    },
+    "gencondsTotal": 80000,
+    "options": {
+     "feeExcludes": [
+      "genconds"
+     ],
+     "reservePrecon": [],
+     "reserveGenconds": [
+      "reserveproject"
+     ]
+    }
+   },
+   "out": [
+    [
+     "Trades total",
+     1000000
+    ],
+    [
+     "Project overheads",
+     100000
+    ],
+    [
+     "Direct cost total",
+     1100000
+    ],
+    [
+     "Precon services",
+     50000
+    ],
+    [
+     "General conditions",
+     80000
+    ],
+    [
+     "Project reserve",
+     23600
+    ],
+    [
+     "Design reserve",
+     16500
+    ],
+    [
+     "Escalation reserve",
+     11000
+    ],
+    [
+     "Subtotal",
+     1281100
+    ],
+    [
+     "P & P bond",
+     9608.25
+    ],
+    [
+     "Works cover",
+     2305.98
+    ],
+    [
+     "L & P insurance",
+     14092.1
+    ],
+    [
+     "Fee",
+     55669.78
+    ],
+    [
+     "Owner IT",
+     10000
+    ],
+    [
+     "Permit fees",
+     5000
+    ],
+    [
+     "Contract total",
+     1377776.11
+    ],
+    [
+     "Retail sales tax",
+     8266.66
+    ],
+    [
+     "Contract total with sales tax",
+     1386042.77
+    ]
+   ]
+  }
+ ],
+ "answers": [
+  [
+   "Included",
+   "included",
+   null
+  ],
+  [
+   "excl",
+   "excluded",
+   null
+  ],
+  [
+   "25,000",
+   "amount",
+   25000
+  ],
+  [
+   "$1,250.50",
+   "amount",
+   1250.5
+  ],
+  [
+   "=62700+25000",
+   "amount",
+   87700
+  ],
+  [
+   "=(10+5)*2",
+   "amount",
+   30
+  ],
+  [
+   "(500)",
+   "amount",
+   -500
+  ],
+  [
+   "Parking for 6 only",
+   "text",
+   null
+  ],
+  [
+   "",
+   "blank",
+   null
+  ],
+  [
+   "=1/0",
+   "text",
+   null
+  ],
+  [
+   "Price",
+   "price",
+   null
+  ]
+ ]
+}

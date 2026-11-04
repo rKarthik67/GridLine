@@ -1,0 +1,7 @@
+bin/
+obj/
+.packages/
+packages.zip
+data/
+*.private.json
+TestResults/
