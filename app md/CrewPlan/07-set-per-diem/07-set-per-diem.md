@@ -18,7 +18,7 @@ As an estimator, I want per diem priced from real rates for the travel dates, so
 
 **Backend:** `PUT /api/crew/{id:long}/per-diem` (`PerDiemIn`) computes days and cost with `Crew.PerDiem` (same rule as the browser) and stores them; `GET /api/per-diem/places` searches `PerDiemPlace` (and `PerDiemZip` when a zip is given).
 
-**Database:** `PerDiemPlace (City, County, StateCode, LocationDefined, Lodging int[12], Meals, FiscalYear)` — 912 FY2026 places exported from BidCalc `PerDiemRates`; `PerDiemZip`; `TeamMember.PerDiemPlaceId, PerDiemStart, PerDiemEnd, PerDiemDays, PerDiemKind, PerDiemDaysCount, PerDiemCost`.
+**Database:** `PerDiemPlace (City, County, StateCode, LocationDefined, Lodging int[12], Meals, FiscalYear)` — 912 FY2026 places loaded from the Gridline DB `PerDiemRates`; `PerDiemZip`; `TeamMember.PerDiemPlaceId, PerDiemStart, PerDiemEnd, PerDiemDays, PerDiemKind, PerDiemDaysCount, PerDiemCost`.
 
 ### Dependencies
 - 01-view-crew-plan-and-team-members

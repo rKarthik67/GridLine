@@ -2,7 +2,7 @@
 
 **Gridline** is a preconstruction estimating and bid-leveling app. It covers the whole path from a new project to a priced proposal: invite trade partners, level their bids scope line by scope line, plan the crew and overheads, and roll everything up into a contract total.
 
-It is a rebuild of the NCC / BidCalc app, with the same calculations and plain-language names for every page. Several people can work on one project at the same time and see each other's changes live.
+It is a rebuild of the NCC app on the Gridline DB, with the same calculations and plain-language names for every page. Several people can work on one project at the same time and see each other's changes live.
 
 Repository: <https://github.com/rKarthik67/GridLine>
 
