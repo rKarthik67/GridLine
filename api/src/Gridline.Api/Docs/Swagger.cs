@@ -32,16 +32,16 @@ public static class Swagger
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
         <style>
           body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#fff}
-          .gl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 20px;background:#1b1530;color:#fff}
-          .gl b{font-size:15px;margin-right:12px}.gl b i{color:#FF7A2F;font-style:normal}
-          .gl input{padding:6px 8px;border-radius:6px;border:1px solid #5b4b8a;background:#2a2147;color:#fff;min-width:210px}
-          .gl button{padding:6px 12px;border-radius:6px;border:0;background:#6A32D4;color:#fff;cursor:pointer}
-          .gl button.s{background:#3a2f5c}.gl span{font-size:12px;opacity:.85;margin-left:6px}
+          .gl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 20px;background:#18221f;color:#fff}
+          .gl b{font-size:15px;margin-right:12px}.gl b i{color:#d8ef58;font-style:normal}
+          .gl input{padding:6px 8px;border-radius:6px;border:1px solid #ffffff25;background:#ffffff0b;color:#fff;min-width:210px}
+          .gl button{padding:6px 12px;border-radius:6px;border:0;background:#27624d;color:#fff;cursor:pointer}
+          .gl button.s{background:#ffffff15}.gl span{font-size:12px;opacity:.85;margin-left:6px}
           .swagger-ui .topbar{display:none}
         </style></head>
         <body>
         <div class="gl"><b>Gridline<i>.</i> API</b>
-          <input id="em" type="email" placeholder="email" value="demo@northshore.example">
+          <input id="em" type="email" placeholder="email" value="k.raman@northshore.example">
           <input id="pw" type="password" placeholder="password">
           <button id="si">Sign in</button><button class="s" id="so">Sign out</button><span id="st"></span></div>
         <div id="swagger"></div>

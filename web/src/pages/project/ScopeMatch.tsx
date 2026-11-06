@@ -237,7 +237,7 @@ export default function ScopeMatch({ project, version }: { project: ProjectDetai
         h('button', { class: `carry3 ${b.isCarried ? 'on' : ''}`, role: 'switch', 'aria-checked': String(b.isCarried), disabled: !canEdit, onClick: () => pick(b) }, [h('i', {}), b.isCarried ? 'Picked' : 'Pick'])])]) }
   const gcols: GCol<SRow>[] = [
     { prop: 'no', name: '#', size: 54, pin: 'start', drag: r => canEdit && r.kind === 'line' && r.l.section === 'tradeitem', value: r => r.kind === 'line' && !r.l.isHeading ? numbered.indexOf(r.l) + 1 : '',
-      show: (r, h) => r.kind === 'line' && r.l.section === 'zone' ? h('i', { class: 'sw', style: { background: (r.l.zoneId != null && zoneOf.get(r.l.zoneId)?.colour) || '#6a32d4' } }) : r.kind === 'line' && !r.l.isHeading ? String(numbered.indexOf(r.l) + 1) : '', cls: () => 'code' },
+      show: (r, h) => r.kind === 'line' && r.l.section === 'zone' ? h('i', { class: 'sw', style: { background: (r.l.zoneId != null && zoneOf.get(r.l.zoneId)?.colour) || '#27624d' } }) : r.kind === 'line' && !r.l.isHeading ? String(numbered.indexOf(r.l) + 1) : '', cls: () => 'code' },
     { prop: 'item', name: 'Scope item', size: ITEM_W, pin: 'start', edit: r => r.kind === 'line' && r.l.section === 'tradeitem',
       value: r => r.kind === 'line' ? r.l.lineText : r.kind === 'sec' ? r.name : r.kind === 'tot' ? ({ base: 'Base bid', adj: 'Scope adjustments', total: 'Total' })[r.which] : (remLine ? 'Zones total' : 'Not in a zone'),
       tip: r => r.kind === 'line' ? [r.l.lineNote, r.l.section === 'baserequirement' ? 'Edit this text on the Base requirements page' : ''].filter(Boolean).join(' · ') || undefined : undefined,

@@ -1,0 +1,48 @@
+# Build and test on every push and pull request. Secrets are not needed: the tests that touch a database start their own.
+name: ci
+on:
+  push:
+    branches: [main, saas-refine]
+  pull_request:
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_DB: gridline_test, POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { global-json-file: api/global.json }
+      - run: dotnet test api/Gridline.slnx -nologo
+      - name: Smoke test against a fresh database
+        env:
+          ConnectionStrings__Gridline: Host=localhost;Database=gridline_test;Username=postgres;Password=postgres;Search Path=gridline,public
+          ASPNETCORE_ENVIRONMENT: Development
+          Seed__DevPassword: Demo@123
+        run: |
+          dotnet run --project api/src/Gridline.Api/Gridline.Api.csproj --no-launch-profile --urls http://localhost:5080 -- --migrate &
+          for i in $(seq 1 60); do curl -fsS http://localhost:5080/api/health && break; sleep 2; done
+          node api/tests/smoke.mjs http://localhost:5080
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+  image:
+    runs-on: ubuntu-latest
+    needs: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t gridline:ci .

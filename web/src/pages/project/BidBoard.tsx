@@ -15,7 +15,15 @@ import { useLookups, useOthersFocus, vkey } from '../../app/hooks'
 import { focus } from '../../live/hub'
 import { useToast } from '../../app/toast'
 
-type Filter = 'all' | 'unres' | 'notlow' | 'single' | 'plug'
+type Filter = 'all' | 'unres' | 'notlow' | 'single' | 'lowcov' | 'spread' | 'plug'
+/** Spread between the lowest and highest posted price as a % of the lowest. A wide spread usually means the bidders read the scope differently: worth a look before picking. */
+export function spreadOf(t: Trade): number | null {
+  const v = t.bids.filter(b => b.isPosted && b.totalAmount != null && b.state !== 'disqualified').map(b => b.totalAmount!)
+  if (v.length < 2) return null
+  const lo = Math.min(...v), hi = Math.max(...v)
+  return lo > 0 ? (hi - lo) / lo * 100 : null
+}
+const WIDE_SPREAD = 15, GOOD_COVERAGE = 3
 const STATE_LABEL: Record<string, string> = { invited: 'Invited', bidding: 'Bidding', posted: 'Posted', late: 'Late', incomplete: 'Incomplete', notplansspecs: 'Not plans & specs', undecided: 'Undecided', disqualified: 'Disqualified', declined: 'Declined' }
 
 /** Browser-side recalculation of one trade (bid totals already include scope adjustments). */
@@ -62,6 +70,8 @@ export default function BidBoard({ project, version }: { project: ProjectDetail;
     if ((onlyUnres || filter === 'unres') && t.carriedValue != null) return false
     if (filter === 'notlow' && !(picked && picked.totalAmount !== t.lowestValue)) return false
     if (filter === 'single' && posted >= 2) return false
+    if (filter === 'lowcov' && posted >= GOOD_COVERAGE) return false
+    if (filter === 'spread' && (spreadOf(t) ?? 0) < WIDE_SPREAD) return false
     if (filter === 'plug' && !(t.plugAmount || t.clientNote || t.teamNote)) return false
     return true
   }), [trades, q, filter, onlyUnres])
@@ -72,6 +82,7 @@ export default function BidBoard({ project, version }: { project: ProjectDetail;
   const tt = trades.reduce((s, t) => s + (t.carriedValue ?? t.lowestValue ?? 0), 0), lw = trades.reduce((s, t) => s + (t.lowestValue ?? 0), 0)
   const bd = trades.reduce((s, t) => s + (t.budgetValue ?? 0), 0), picked = trades.filter(t => t.bids.some(b => b.isCarried)).length
   const unresolved = trades.filter(t => t.carriedValue == null).length
+  const covered = trades.filter(t => t.bids.filter(b => b.isPosted).length >= GOOD_COVERAGE).length, wide = trades.filter(t => (spreadOf(t) ?? 0) >= WIDE_SPREAD).length
   const area = data.version.grossArea
   const metric: string[] = [...(showBudget ? ['Budget', 'Δ budget'] : []), 'Lowest', 'Δ to lowest', ...(buyout ? ['Buyout %', 'Buyout savings'] : [])]
   const W0 = 290, W1 = 176
@@ -87,9 +98,11 @@ export default function BidBoard({ project, version }: { project: ProjectDetail;
         <ExportMenu items={[['Bid board (Excel)', `/exports/bid-board.xlsx?versionId=${vid}`], ['Bid quotes (PDF)', `/exports/bid-quotes.pdf?versionId=${vid}`]]} /></>} />
     <div className="card blsheet">
       <div className="tb"><label className="sbox"><Icon name="search" size="s" /><input placeholder="Search trades or trade partners" value={q} onChange={e => setQ(e.target.value)} style={{ width: 220 }} /></label>
-        <div className="pills">{([['all', 'All'], ['unres', 'Unresolved'], ['notlow', 'Not lowest'], ['single', 'Single bid'], ['plug', 'With plug / notes']] as [Filter, string][]).map(([k, l]) =>
+        <div className="pills">{([['all', 'All'], ['unres', 'Unresolved'], ['notlow', 'Not lowest'], ['single', 'Single bid'], ['lowcov', `Under ${GOOD_COVERAGE} bids`], ['spread', 'Wide spread'], ['plug', 'With plug / notes']] as [Filter, string][]).map(([k, l]) =>
           <button key={k} aria-pressed={filter === k} onClick={() => setFilter(k)}>{l}</button>)}</div></div>
-      <div className="tb sub2"><span className="stats"><b>{trades.length}</b> trades <i className="d car" /><b>{picked}</b> picked <i className="d un" /><b>{unresolved}</b> unresolved</span><span className="sep" />
+      <div className="tb sub2"><span className="stats"><b>{trades.length}</b> trades <i className="d car" /><b>{picked}</b> picked <i className="d un" /><b>{unresolved}</b> unresolved
+        <span className="sep" /><span title={`Trades with ${GOOD_COVERAGE} or more posted bids (the usual minimum for a competitive number)`}><b>{covered}</b>/{trades.length} with {GOOD_COVERAGE}+ bids</span>
+        {wide > 0 && <span title={`Trades where the highest posted bid is ${WIDE_SPREAD}% or more above the lowest`} style={{ color: 'var(--bad)' }}><b>{wide}</b> wide spread</span>}</span><span className="sep" />
         <Toggle label="Budget" on={showBudget} onChange={setShowBudget} /><Toggle label="Only unresolved" on={onlyUnres} onChange={setOnlyUnres} /><Toggle label="Anticipated buyouts" on={buyout} onChange={setBuyout} />
         <span className="sp" />{showBudget && <><span className="mut" style={{ fontSize: 12 }}>Budget source</span>
           <Menu cls="sm" label={data.baselineName ?? 'Trade budgets'} items={[{ label: 'Trade budgets (as entered)', onClick: () => run(() => api.patch(`/versions/${vid}`, { baselineName: '' }).then(() => qc.invalidateQueries({ queryKey: key })), 'Budget source: trade budgets') },
@@ -99,10 +112,10 @@ export default function BidBoard({ project, version }: { project: ProjectDetail;
         <tr className="g1"><th className="st" style={{ left: 0, minWidth: W0, maxWidth: W0 }} rowSpan={2}>Trade</th><th className="st edge" style={{ left: W0, minWidth: W1, maxWidth: W1 }} rowSpan={2}>Picked value</th>
           <th colSpan={metric.length} className="grp-h m">Position</th>
           <th colSpan={maxB} className="grp-h b">Bids · side by side <span className="muted">click a bid to pick it · click a name for details</span></th>
-          {zones.map(z => <th key={z.zoneId} colSpan={2} className="grp-h z" style={{ ['--zc' as string]: z.colour ?? '#6a32d4' }}>{z.zoneName}<small>{z.floorArea ? z.floorArea.toLocaleString() + ' SF' : 'lump sum'}</small></th>)}
+          {zones.map(z => <th key={z.zoneId} colSpan={2} className="grp-h z" style={{ ['--zc' as string]: z.colour ?? '#27624d' }}>{z.zoneName}<small>{z.floorArea ? z.floorArea.toLocaleString() + ' SF' : 'lump sum'}</small></th>)}
           <th rowSpan={2} className="grp-h p">Plug & notes</th></tr>
         <tr className="g2">{metric.map(m => <th key={m} className="r">{m}</th>)}{Array.from({ length: maxB }, (_, i) => <th key={i} className="bhd">Bid {i + 1}</th>)}
-          {zones.map(z => [<th key={z.zoneId + 't'} className="r zt" style={{ ['--zc' as string]: z.colour ?? '#6a32d4' }}>Total</th>, <th key={z.zoneId + 's'} className="r">$/SF</th>])}</tr>
+          {zones.map(z => [<th key={z.zoneId + 't'} className="r zt" style={{ ['--zc' as string]: z.colour ?? '#27624d' }}>Total</th>, <th key={z.zoneId + 's'} className="r">$/SF</th>])}</tr>
       </thead><tbody>
         {rows.map(t => {
           const posted = t.bids.filter(b => b.isPosted).length; const pk = t.bids.find(b => b.isCarried); const cv = t.carriedValue
@@ -113,7 +126,9 @@ export default function BidBoard({ project, version }: { project: ProjectDetail;
           return <tr key={t.tradeId} className={cv == null ? 'unres' : ''} style={other ? { outline: `2px solid ${other.colour}`, outlineOffset: -2 } : undefined}>
             <td className="st" style={{ left: 0, minWidth: W0, maxWidth: W0 }}><div className="trc"><span className="code">{t.csiCode}</span>
               <a className="lnk" href={`../scope-match?trade=${t.tradeId}`} onClick={e => { e.preventDefault(); nav(`../scope-match?trade=${t.tradeId}`, { relative: 'path' }) }} title="Open in scope match">{t.tradeName}</a>
-              <span className="bcount">{posted}/{t.bids.length}</span>
+              <span className="bcount" title={`${posted} posted of ${t.bids.length} invited`}>{posted}/{t.bids.length}</span>
+              {posted > 0 && posted < GOOD_COVERAGE && cv == null && <span className="cov-tag low" title={`Only ${posted} posted bid${posted === 1 ? '' : 's'}: fewer than ${GOOD_COVERAGE} is thin coverage for a competitive number`}>thin</span>}
+              {spreadOf(t) != null && <span className={`cov-tag ${spreadOf(t)! >= WIDE_SPREAD ? 'wide' : 'ok'}`} title={`Highest posted bid is ${spreadOf(t)!.toFixed(0)}% above the lowest${spreadOf(t)! >= WIDE_SPREAD ? ': check the bidders read the scope the same way' : ''}`}>±{spreadOf(t)!.toFixed(0)}%</span>}
               {other && <span className="tag" style={{ background: other.colour, color: '#fff' }} title={`${other.personName} is ${other.activity}`}>{other.initials}</span>}
               {canEdit && <Menu cls="sm g ic rm" label="" icon="dots" items={[{ label: 'Rename / change CSI code', icon: 'note', onClick: () => setRenameT(t) }, { label: t.zonesFromScope ? 'Zone split (from Scope match zone amounts)' : 'Zone split', icon: 'layers', onClick: () => setSplitFor(t) },
                 { label: 'Add bidder', icon: 'plus', onClick: () => setAddBidFor(t) }, { label: 'Open in scope match', icon: 'list', onClick: () => nav(`../scope-match?trade=${t.tradeId}`, { relative: 'path' }) },
@@ -132,7 +147,7 @@ export default function BidBoard({ project, version }: { project: ProjectDetail;
             {Array.from({ length: maxB }, (_, bi) => <td key={bi} className="bc">{t.bids[bi] ? <Tile t={t} b={t.bids[bi]} posted={posted} onPick={() => pick(t, t.bids[bi])} onOpen={() => setDrawer({ t, b: t.bids[bi] })} />
               : bi === t.bids.length && canEdit ? <div className="btile add" onClick={() => setAddBidFor(t)}><Icon name="plus" size="s" />Invite</div> : null}</td>)}
             {zones.map(z => { const s = t.zoneShares[z.zoneCode] ?? 0; const v = basis * s
-              return [<td key={z.zoneId + 't'} className="n zt" style={{ ['--zc' as string]: z.colour ?? '#6a32d4' }}>{s ? money(Math.round(v)) : <span className="mut">–</span>}</td>,
+              return [<td key={z.zoneId + 't'} className="n zt" style={{ ['--zc' as string]: z.colour ?? '#27624d' }}>{s ? money(Math.round(v)) : <span className="mut">–</span>}</td>,
                 <td key={z.zoneId + 's'} className="n mut">{s && z.floorArea ? (v / z.floorArea).toFixed(2) : '–'}</td>] })}
             <td className="plc">{t.plugAmount || t.clientNote || t.teamNote ? <div className="plg">{t.plugAmount ? <span className="pa1"><Icon name="bolt" size="s" />{money(t.plugAmount)}</span> : null}
               {t.clientNote && <span className="pa2" title="Shown to the client">{t.clientNote}</span>}{t.teamNote && <span className="pa3" title="Team only"><Icon name="note" size="s" />{t.teamNote}</span>}</div> : <span className="mut">–</span>}</td>
@@ -147,7 +162,7 @@ export default function BidBoard({ project, version }: { project: ProjectDetail;
             {showBudget && <><td className="n mut">{money(b)}</td><td className="n">{b != null ? money(l.amount - b) : ''}</td></>}<td /><td />{buyout && <><td /><td /></>}
             <td colSpan={maxB} className="bc mut" style={{ fontSize: 11 }}>{isCalc ? 'Calculated' : l.kind === 'cost' ? (l.code === 'genreq' ? 'From Project overheads' : 'From Precon services') : ''}</td>
             {zones.map(z => { const v = l.zones[z.zoneCode] ?? l.amount * zoneShare(z)
-              return [<td key={z.zoneId + 't'} className="n zt" style={{ ['--zc' as string]: z.colour ?? '#6a32d4' }}>{money(Math.round(v))}</td>, <td key={z.zoneId + 's'} className="n mut">{z.floorArea ? (v / z.floorArea).toFixed(2) : '–'}</td>] })}<td /></tr>
+              return [<td key={z.zoneId + 't'} className="n zt" style={{ ['--zc' as string]: z.colour ?? '#27624d' }}>{money(Math.round(v))}</td>, <td key={z.zoneId + 's'} className="n mut">{z.floorArea ? (v / z.floorArea).toFixed(2) : '–'}</td>] })}<td /></tr>
         })}
       </tbody></table></div>
       <div className="mbar">{([['Budget', money(bd)], ['Δ budget', (tt - bd > 0 ? '+' : '') + money(tt - bd), tt - bd > 0 ? 'bad' : 'good'], ['Trades total', money(tt), 'acc'], ['Δ to lowest', '+' + money(tt - lw), 'warn'], ['Lowest', money(lw)],
@@ -276,12 +291,12 @@ function SplitModal({ t, zones, onClose, onDone }: { t: Trade; zones: Zone[]; on
   const total = Object.values(v).reduce((s, x) => s + (toNum(x) ?? 0), 0)
   if (!zones.length) return <Modal title="Zone split" onClose={onClose}><p>This version has no zones. Add zones in Project profile → Zones.</p></Modal>
   if (t.zonesFromScope) return <Modal title={`Zone split · ${t.tradeName}`} onClose={onClose}><p>This trade's split comes from the zone amounts entered in Scope match for the {t.bids.some(b => b.isCarried) ? 'picked' : 'lowest'} bid{zones.some(z => z.isRemainder) ? ' (the remainder zone gets what is left of the bid total)' : ''}:</p>
-    <div className="fgrid">{zones.map(z => <div className="field" key={z.zoneId}><label><i className="sw" style={{ background: z.colour ?? '#6a32d4' }} /> {z.zoneName}</label><div className="inp ro num">{((t.zoneShares[z.zoneCode] ?? 0) * 100).toFixed(2)}%</div></div>)}</div>
+    <div className="fgrid">{zones.map(z => <div className="field" key={z.zoneId}><label><i className="sw" style={{ background: z.colour ?? '#27624d' }} /> {z.zoneName}</label><div className="inp ro num">{((t.zoneShares[z.zoneCode] ?? 0) * 100).toFixed(2)}%</div></div>)}</div>
     <p className="muted">To split it by hand, clear the zone amounts in Scope match{zones.some(z => z.isRemainder) ? ' and remove the remainder zone in Project profile → Zones' : ''}.</p></Modal>
   return <Modal title={`Zone split · ${t.tradeName}`} onClose={onClose} footer={<><span className={total === 100 ? 'tag g' : 'tag r'}>{total.toFixed(2)}%</span><span style={{ flex: 1 }} />
     <button className="btn" onClick={() => setV(Object.fromEntries(zones.map(z => [z.zoneCode, z.defaultShare != null ? String(+(z.defaultShare * 100).toFixed(2)) : ''])))}>Use default split</button>
     <button className="btn p" disabled={busy || Math.abs(total - 100) > 0.05} onClick={async () => { const r = await run(() => api.put<TradeReply>(`/trades/${t.tradeId}/zones`, { shares: Object.fromEntries(Object.entries(v).filter(([, x]) => toNum(x)).map(([k, x]) => [k, toNum(x)! / 100])) }), 'Zone split saved'); if (r) onDone(r) }}><Icon name="check" />Save</button></>}>
-    <div className="fgrid">{zones.map(z => <div className="field" key={z.zoneId}><label><i className="sw" style={{ background: z.colour ?? '#6a32d4' }} /> {z.zoneName} ({z.zoneCode})</label>
+    <div className="fgrid">{zones.map(z => <div className="field" key={z.zoneId}><label><i className="sw" style={{ background: z.colour ?? '#27624d' }} /> {z.zoneName} ({z.zoneCode})</label>
       <input className="inp num" value={v[z.zoneCode]} onChange={e => setV({ ...v, [z.zoneCode]: e.target.value })} placeholder="0" /></div>)}</div>
   </Modal>
 }

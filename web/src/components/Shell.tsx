@@ -9,15 +9,27 @@ import { debugEnabled, setDebug } from '../api/debug'
 export { PROJECT_PAGES } from '../app/pages'
 import { PAGE_GROUPS, PROJECT_PAGES } from '../app/pages'
 
+export const ADMIN_PAGES = [
+  { key: 'company', label: 'Company', icon: 'company' },
+  { key: 'people', label: 'People & access', icon: 'users' },
+  { key: 'partners', label: 'Trade partners', icon: 'people' },
+  { key: 'staff', label: 'Employees & roles', icon: 'team' },
+  { key: 'templates', label: 'Template library', icon: 'book' },
+  { key: 'audit', label: 'Audit trail', icon: 'clock' },
+] as const
+export type AdminKey = typeof ADMIN_PAGES[number]['key']
+
 export function Shell({ title, crumbs, children, project }: { title: string; crumbs?: ReactNode; children: ReactNode; project?: { no: string; name: string; versionNo: number; stage: string; versions?: { versionId: number; versionNo: number }[] } }) {
-  const nav = useNavigate(); const [collapsed, setCollapsed] = useState(false)
+  const nav = useNavigate(); const { me, isAdmin } = useAuth()
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('gridline.side') === 'collapsed' } catch { return false } })
   const { versionNo } = useParams()
   useEffect(() => { document.title = `${title}${project ? ' · ' + project.name : ''} · Gridline` }, [title, project])
+  useEffect(() => { try { localStorage.setItem('gridline.side', collapsed ? 'collapsed' : 'open') } catch { /* private mode */ } }, [collapsed])
   const base = project ? `/p/${encodeURIComponent(project.no)}/v/${versionNo ?? project.versionNo}` : ''
   return (
     <div className={`app ${collapsed ? 'collapsed' : ''}`}>
       <aside className="side" aria-label="Main navigation">
-        <div className="brand"><span className="mark">G</span><b>Gridline<i>.</i></b></div>
+        <div className="brand" title={me?.company?.name}><span className="mark">G</span><span style={{ minWidth: 0 }}><b>Gridline<i>.</i></b>{me?.company?.name && <span className="brand-co">{me.company.name}</span>}</span></div>
         {project && (
           <button className="pswitch" onClick={() => nav('/projects')} title="Switch project">
             <span className="pi"><Icon name="build" /></span>
@@ -33,8 +45,14 @@ export function Shell({ title, crumbs, children, project }: { title: string; cru
           {project && PAGE_GROUPS.map(g => <div className="ng" key={g.key}><div className="nh">{g.key === 'project' && <Icon name="build" size="s" />}<span>{g.key === 'project' ? project.name : g.label}</span></div><div className="nl">
             {PROJECT_PAGES.filter(p => p.group === g.key).map(p => <NavLink key={p.key} to={`${base}/${p.key}`} data-was={p.was}><Icon name={p.icon} /><span>{p.label}</span></NavLink>)}
           </div></div>)}
+          {isAdmin && !project && <div className="ng"><div className="nh"><span>Administration</span></div><div className="nl">
+            {ADMIN_PAGES.map(p => <NavLink key={p.key} to={`/admin/${p.key}`}><Icon name={p.icon} /><span>{p.label}</span></NavLink>)}
+          </div></div>}
         </nav>
-        <div className="sidefoot"><button onClick={() => setCollapsed(c => !c)}><Icon name="side" /><span>Collapse sidebar</span></button></div>
+        <div className="sidefoot">
+          {isAdmin && project && <NavLink to="/admin/company"><Icon name="gear" /><span>Administration</span></NavLink>}
+          <button onClick={() => setCollapsed(c => !c)}><Icon name="side" /><span>Collapse sidebar</span></button>
+        </div>
       </aside>
       <div className="main">
         <header className="top">
@@ -48,9 +66,9 @@ export function Shell({ title, crumbs, children, project }: { title: string; cru
     </div>
   )
 }
-/** Your profile: who you're signed in as, your roles, and an explicit Sign out (clicking the avatar no longer signs you out). */
+/** Your profile: who you're signed in as, your roles, account settings and an explicit Sign out. */
 function ProfileMenu() {
-  const { me, signOut } = useAuth(); const nav = useNavigate(); const [open, setOpen] = useState(false); const ref = useRef<HTMLDivElement>(null)
+  const { me, signOut, isAdmin } = useAuth(); const nav = useNavigate(); const [open, setOpen] = useState(false); const ref = useRef<HTMLDivElement>(null)
   const [dbg, setDbg] = useState(() => debugEnabled())
   useEffect(() => {
     if (!open) return
@@ -60,15 +78,17 @@ function ProfileMenu() {
     return () => { removeEventListener('mousedown', c); removeEventListener('keydown', k) }
   }, [open])
   return <div className="profile-wrap" ref={ref}>
-    <button className="avatar" title={me ? `${me.name} · profile` : 'Profile'} aria-haspopup="menu" aria-expanded={open} style={{ background: me?.colour }} onClick={() => setOpen(o => !o)}>{me?.initials ?? '?'}</button>
+    <button className="avatar" title={me ? `${me.name} · profile` : 'Profile'} aria-haspopup="menu" aria-expanded={open} style={{ background: me?.colour, color: '#fff' }} onClick={() => setOpen(o => !o)}>{me?.initials ?? '?'}</button>
     {open && <div className="profmenu" role="menu">
-      <div className="pm-head"><span className="avatar lg" style={{ background: me?.colour }}>{me?.initials ?? '?'}</span>
-        <div><b>{me?.name}</b><small>{me?.email}</small></div></div>
+      <div className="pm-head"><span className="avatar lg" style={{ background: me?.colour, color: '#fff' }}>{me?.initials ?? '?'}</span>
+        <div><b>{me?.name}</b><small>{me?.email}</small><small>{me?.company?.name}</small></div></div>
       {!!me?.roles.length && <div className="pm-roles">{me.roles.map(r => <span key={r} className="chip">{r}</span>)}</div>}
       <hr />
       <button role="menuitem" onClick={() => { setOpen(false); nav('/projects') }}><Icon name="folder" size="s" />My portfolio</button>
+      <button role="menuitem" onClick={() => { setOpen(false); nav('/account') }}><Icon name="team" size="s" />Account &amp; password</button>
+      {isAdmin && <button role="menuitem" onClick={() => { setOpen(false); nav('/admin/company') }}><Icon name="gear" size="s" />Company administration</button>}
       <button role="menuitem" onClick={() => window.open(location.href, '_blank', 'noopener')}><Icon name="expand" size="s" />Open this page in a new tab</button>
-      <button role="menuitem" onClick={() => { const v = !dbg; setDebug(v); setDbg(v) }}><Icon name="gear" size="s" />Debug logging in console: {dbg ? 'on' : 'off'}</button>
+      <button role="menuitem" onClick={() => { const v = !dbg; setDebug(v); setDbg(v) }}><Icon name="flask" size="s" />Debug logging in console: {dbg ? 'on' : 'off'}</button>
       <hr />
       <button role="menuitem" className="danger" onClick={() => { setOpen(false); signOut().then(() => nav('/signin')) }}><Icon name="logout" size="s" />Sign out</button>
     </div>}

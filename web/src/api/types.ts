@@ -3,7 +3,7 @@ export type Stage = 'lead' | 'pursuit' | 'bidding' | 'submitted' | 'awarded' | '
 export type BidState = 'invited' | 'bidding' | 'posted' | 'late' | 'incomplete' | 'notplansspecs' | 'undecided' | 'disqualified' | 'declined'
 export type AnswerKind = 'included' | 'excluded' | 'amount' | 'price' | 'text' | 'blank'
 export type Desired = 'included' | 'excluded' | 'price' | 'text'
-export interface Me { userId: number; name: string; initials: string; colour: string; email: string; roles: string[]; capabilities: string[] }
+export interface Me { userId: number; name: string; initials: string; colour: string; email: string; roles: string[]; capabilities: string[]; company: { id: number; name: string; slug: string } }
 export interface ProjectRow { projectId: number; projectNo: string; projectName: string; stage: Stage; clientName: string | null; projectType: string | null; city: string | null; stateCode: string | null; bidDueOn: string | null; primaryVersionNo: number | null; grossArea: number; trades: number; tradesCarried: number; tradesTotal: number | null; contractTotal: number | null; estimator: string | null; isFavourite: boolean; peopleHere: number }
 export interface Version { versionId: number; versionNo: number; versionLabel: string | null; isPrimary: boolean; status: string; grossArea: number; buildMonths: number | null; feePct: number; baselineName: string | null; copiedFromVersionId: number | null; createdAt: string; rowRev: number
   /** zones equal total project area (gross area = Σ zone SF not excluded) */ zonesSetArea: boolean; primaryAreaUnit: AreaUnit; primaryUnitLabel: UnitLabel; totalUnits: number }

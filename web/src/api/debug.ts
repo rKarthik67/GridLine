@@ -37,7 +37,7 @@ const colour = (status: number) => status >= 500 ? '#d1344b' : status >= 400 ? '
 export const debugLog = {
   request(id: number, method: string, url: string, body: unknown) {
     if (!enabled()) return
-    console.log(`%c→ #${id} ${method} ${url}`, 'color:#6a32d4;font-weight:600', describeBody(body))
+    console.log(`%c→ #${id} ${method} ${url}`, 'color:#27624d;font-weight:600', describeBody(body))
   },
   response(id: number, method: string, url: string, status: number, data: unknown, ms: number) {
     if (!enabled()) return

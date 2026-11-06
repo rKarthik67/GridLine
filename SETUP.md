@@ -51,7 +51,7 @@ Pick **one** of the two options.
 ```powershell
 powershell -ExecutionPolicy Bypass -File ".\db backup\Restore-Gridline.ps1" -DumpFile ".\db backup\gridline2-20261104-2006.dump"
 ```
-Use the newest `.dump` in the folder if there is a later one. The script creates the `gridline2` database, restores everything, and prints the schema version (**8**) and the number of projects.
+Use the newest `.dump` in the folder if there is a later one. The script creates the `gridline2` database, restores everything, and prints the schema version (**10**) and the number of projects.
 
 Then put back the uploaded files (documents and proposals) that go with the backup:
 ```powershell
@@ -69,7 +69,7 @@ Get-ChildItem db\migrations\*.sql | Sort-Object Name | ForEach-Object {
 }
 psql -h localhost -U postgres -d gridline2 -c "select max(ChangeNo) from gridline.SchemaChange"
 ```
-The last command should print **8**. Migration `002_seed.sql` adds 8 demo projects and the demo users.
+The last command should print **10**. Migration `002_seed.sql` adds 8 demo projects and the demo users.
 
 > `psql` asks for the password on each command. To avoid that for this window only: `$env:PGPASSWORD = Read-Host 'postgres password'`. Close the window afterwards.
 
@@ -100,7 +100,7 @@ cd api
 The first run restores NuGet packages (a few minutes). When it's ready you'll see `Now listening on: http://localhost:5080`.
 
 Check it in a browser:
-- <http://localhost:5080/api/health>: should show `"ok":true,"db":"gridline2","schema":8`
+- <http://localhost:5080/api/health>: should show `"ok":true,"db":"gridline2","schema":10`
 - <http://localhost:5080/swagger>: the API documentation
 
 Leave this window open.
@@ -150,6 +150,18 @@ These are local test accounts only.
 
 ---
 
+## Since the hosted-product refinement (November 2026)
+
+- **Companies.** The database now has a `Company` table and every user, project, trade partner, employee and template belongs to one. The restored backup becomes company *Northshore Builders*; a second company *Gridline starter library* holds the templates new companies are cloned from.
+- **Migrations run themselves.** New files in `db\migrations` are applied when the API starts with `Db:AutoMigrate=true`, or on demand: `dotnet run --project src\Gridline.Api\Gridline.Api.csproj -- --migrate` (from `api\`). `/api/health` shows the schema number (**10** now).
+- **Sign-up and invitations.** On the sign-in page, *Create your company* makes a new company with you as administrator. Administrators invite people under *Administration → People & access*; without an SMTP server configured the invitation link is shown on screen and written to the API log.
+- **Forgot password.** `/forgot` emails a reset link (or shows it, in Development, when no SMTP is configured).
+- **Lockout.** Eight wrong passwords lock an account for 15 minutes; sign-in routes allow 10 attempts a minute per address.
+- **End-to-end check.** `node api	ests\smoke.mjs` against a running API creates a throw-away company and verifies isolation, invitations, resets and the admin API (45 checks).
+- **Hosting.** `docker compose up -d --build` with a `.env` (see `.env.example` and `docs/DEPLOY.md`).
+
+---
+
 ## Getting updates later
 
 ```powershell
@@ -158,7 +170,7 @@ git pull
 psql -h localhost -U postgres -d gridline2 -v ON_ERROR_STOP=1 -f db\migrations\009_<name>.sql
 cd web; npm install          # if package.json changed
 ```
-Restart the API afterwards. `/api/health` shows the schema version the database is on. Migrations from 003 onward are safe to run twice.
+Restart the API afterwards. `/api/health` shows the schema version the database is on. Migrations from 003 onward are safe to run twice, or just start the API with `--migrate`.
 
 ---
 
@@ -180,7 +192,7 @@ See `db backup\README.md` for restoring on another machine.
 | `password authentication failed for user "postgres"` | The password in `appsettings.Development.private.json` (or what you typed) doesn't match the one set when installing PostgreSQL. |
 | API says "Create …private.json first" | Do step 4. |
 | `A compatible .NET SDK was not found` | Install the .NET **10** SDK (not only the runtime), then open a new window. |
-| `/api/health` shows a schema lower than 8 | Run the missing migrations from `db\migrations` in order (Option B loop, skipping `CREATE DATABASE`). |
+| `/api/health` shows a schema lower than 10 | Run the missing migrations from `db\migrations` in order (Option B loop, skipping `CREATE DATABASE`). |
 | Restore script: "Database 'gridline2' already exists" | Restore under another name (`-Database gridline2_copy`) and change `Database=` in the private settings, or drop the old database first. |
 | Port 5080 or 5173 already in use | Close the other app, or find it with `netstat -ano | findstr :5080` and end that process in Task Manager. |
 | Web app loads but shows "Can't reach the database right now" | PostgreSQL isn't running. Start the `postgresql-x64-17` service. |

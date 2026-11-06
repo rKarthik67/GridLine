@@ -153,7 +153,7 @@ export default function CrewPlan({ project, version }: { project: ProjectDetail;
               <td className="st" style={{ left: 0 }}>{canEdit && <span className="grip" title="Drag to reorder">⠿</span>}{name(m)}</td><td className="st edge mut" style={{ left: 240 }}>{m.isTba ? (m.roleName ?? m.roleLabel) : m.roleLabel}</td>
               {tab === 'members' ? cols.map(c => <td key={c.key} className="n">{memberCell(m, c)}</td>)
                 : <>{buckets.map(([k, ws]) => { const h = ws.reduce((s, w) => s + (m.hours[w.weekId] ?? 0), 0)
-                  return <td key={k} className={`n hc ph-${ws[0].phase}`} style={{ background: h ? `rgba(106,50,212,${Math.min(0.4, (h / ws.length / 40) * 0.32)})` : undefined }}>
+                  return <td key={k} className={`n hc ph-${ws[0].phase}`} style={{ background: h ? `rgba(39,98,77,${Math.min(0.4, (h / ws.length / 40) * 0.32)})` : undefined }}>
                     {canEdit ? <EditCell number value={h || ''} style={{ width: period === 'week' ? 48 : 60, textAlign: 'right', background: 'transparent', border: 0 }}
                       onSave={v => { const x = Math.max(0, toNum(v) ?? 0)
                         if (period === 'week') run(() => api.put<CrewData>(`/crew/${m.teamMemberId}/hours`, { cells: [{ weekId: ws[0].weekId, hours: Math.min(80, x) }] })).then(put)

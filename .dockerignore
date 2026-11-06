@@ -1,0 +1,20 @@
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.vite
+**/*.tsbuildinfo
+api/src/Gridline.Api/data
+api/src/Gridline.Api/appsettings.*.private.json
+db backup
+app md
+docs
+_sync
+_to_delete
+.git
+.github
+.vs
+.vscode
+.idea
+*.md
+!README.md

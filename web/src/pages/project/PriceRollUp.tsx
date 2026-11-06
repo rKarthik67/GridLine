@@ -11,6 +11,7 @@ import { Icon } from '../../components/Icon'
 import { EditCell, ExportMenu, Failed, Loading, Seg, toNum, useAction } from '../../components/ui'
 import { money, pct } from '../../app/format'
 import { vkey } from '../../app/hooks'
+import { divisionName, divisionOf } from '../../app/csi'
 import { IndirectModal } from './BidBoard'
 import { EstimatorModal } from './Estimator'
 
@@ -19,7 +20,7 @@ export default function PriceRollUp({ project, version }: { project: ProjectDeta
   const key = vkey('price-roll-up', vid)
   const { data, error, isLoading } = useQuery({ queryKey: key, queryFn: () => api.get<RollUpData>(`/versions/${vid}/price-roll-up`) })
   const board = useQuery({ queryKey: vkey('bid-board', vid), queryFn: () => api.get<BidBoardData>(`/versions/${vid}/bid-board`) })
-  const [cols, setCols] = useState<'total' | 'sf'>('total'); const [heat, setHeat] = useState(true); const [showTrades, setShowTrades] = useState(true)
+  const [cols, setCols] = useState<'total' | 'sf'>('total'); const [heat, setHeat] = useState(true); const [showTrades, setShowTrades] = useState<'y' | 'div' | 'n'>('y')
   const [draft, setDraft] = useState<Record<string, number>>({})      // rate being typed → live numbers before the save returns
   const [addInd, setAddInd] = useState(false); const [estOpen, setEstOpen] = useState(false)
   const canEdit = project.access !== 'viewer' && version.status !== 'locked'
@@ -55,8 +56,8 @@ export default function PriceRollUp({ project, version }: { project: ProjectDeta
 
   const zoneCells = (_amt: number, z: (typeof zones)[number], isTrade: boolean, zv?: number) => {
     const v = zv ?? 0
-    const style = heat && isTrade && v ? { background: `rgba(106,50,212,${(Math.sqrt(v / zmax[z.zoneCode]) * 0.45 + 0.04).toFixed(2)})`, color: v / zmax[z.zoneCode] > 0.55 ? '#fff' : undefined } : undefined
-    return [<td key={z.zoneId + 't'} className="n zt" style={{ ['--zc' as string]: z.colour ?? '#6a32d4', ...style }}>{v ? money(v) : <span className="mut">–</span>}</td>,
+    const style = heat && isTrade && v ? { background: `rgba(39,98,77,${(Math.sqrt(v / zmax[z.zoneCode]) * 0.45 + 0.04).toFixed(2)})`, color: v / zmax[z.zoneCode] > 0.55 ? '#fff' : undefined } : undefined
+    return [<td key={z.zoneId + 't'} className="n zt" style={{ ['--zc' as string]: z.colour ?? '#27624d', ...style }}>{v ? money(v) : <span className="mut">–</span>}</td>,
       cols === 'sf' ? <td key={z.zoneId + 's'} className="n mut">{v && z.floorArea ? '$' + (v / z.floorArea).toFixed(2) : '–'}</td> : null]
   }
 
@@ -72,13 +73,21 @@ export default function PriceRollUp({ project, version }: { project: ProjectDeta
       <div className="s fin"><span className="k">Contract total</span><span className="v">{money(CT)}</span><span className="num" style={{ fontSize: 11 }}>{area ? `$${(CT / area).toFixed(2)}/SF` : ''}</span></div></div></div>
     <div className="card"><div className="tb"><span className="muted" style={{ fontWeight: 800, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase' }}>Zones</span>
       <Seg<'total' | 'sf'> value={cols} onChange={setCols} items={[['total', 'Total'], ['sf', '+ $/SF']]} /><Seg value={heat ? 'h' : 'p'} onChange={v => setHeat(v === 'h')} items={[['h', 'Heat map'], ['p', 'Plain']]} />
-      <Seg value={showTrades ? 'y' : 'n'} onChange={v => setShowTrades(v === 'y')} items={[['y', 'With trades'], ['n', 'Build-up only']]} />
+      <Seg<'y' | 'div' | 'n'> value={showTrades} onChange={setShowTrades} items={[['y', 'With trades'], ['div', 'By CSI division'], ['n', 'Build-up only']]} />
       <div className="sp" /><span className="muted" style={{ fontSize: 12 }}>Gross area {area.toLocaleString()} SF · {Object.keys(draft).length ? 'recalculating…' : 'confirmed by the server'}</span></div>
       <div className="gw"><table className="dg" style={{ minWidth: '100%' }}>
         <thead><tr><th style={{ minWidth: 280 }}>Line</th><th className="r" style={{ width: 96 }}>Rate</th><th className="r">Amount</th><th className="r">% contract</th><th className="r">$/SF</th><th className="r">Budget</th><th className="r">Δ budget</th>
-          {zones.map(z => [<th key={z.zoneId} className="r zt" style={{ ['--zc' as string]: z.colour ?? '#6a32d4' }}>{z.zoneName}<div className="muted" style={{ fontSize: 10.5 }}>{z.floorArea ? z.floorArea.toLocaleString() + ' SF' : 'site'}</div></th>, cols === 'sf' ? <th key={z.zoneId + 's'} className="r">$/SF</th> : null])}</tr></thead>
+          {zones.map(z => [<th key={z.zoneId} className="r zt" style={{ ['--zc' as string]: z.colour ?? '#27624d' }}>{z.zoneName}<div className="muted" style={{ fontSize: 10.5 }}>{z.floorArea ? z.floorArea.toLocaleString() + ' SF' : 'site'}</div></th>, cols === 'sf' ? <th key={z.zoneId + 's'} className="r">$/SF</th> : null])}</tr></thead>
         <tbody>
-          {showTrades && (board.data?.trades ?? []).map(t => { const v = t.carriedValue ?? t.lowestValue ?? 0; const pk = t.bids.find(b => b.isCarried)
+          {showTrades === 'div' && Object.entries((board.data?.trades ?? []).reduce<Record<string, { v: number; b: number; n: number; z: Record<string, number> }>>((acc, t) => {
+              const d = divisionOf(t.csiCode); const v = t.carriedValue ?? t.lowestValue ?? 0; const a = acc[d] ?? (acc[d] = { v: 0, b: 0, n: 0, z: {} })
+              a.v += v; a.b += t.budgetValue ?? 0; a.n++; for (const z of zones) a.z[z.zoneCode] = (a.z[z.zoneCode] ?? 0) + v * (t.zoneShares[z.zoneCode] ?? 0); return acc }, {}))
+            .sort(([a], [b]) => a.localeCompare(b)).map(([d, g]) => <tr key={'d' + d} className="sub">
+              <td><span className="code">{d}</span> <b>{divisionName(d)}</b><span className="muted" style={{ marginLeft: 6, fontSize: 11.5 }}>{g.n} trade{g.n === 1 ? '' : 's'}</span></td>
+              <td /><td className="n"><b className="num">{money(g.v)}</b></td><td className="n mut">{CT ? pct(g.v / CT * 100, 2) : '–'}</td><td className="n mut">{area ? (g.v / area).toFixed(2) : '–'}</td>
+              <td className="n mut">{g.b ? money(g.b) : ''}</td><td className="n" style={{ color: g.b && g.v - g.b > 0 ? 'var(--bad)' : 'var(--good)' }}>{g.b ? money(g.v - g.b) : ''}</td>
+              {zones.map(z => zoneCells(g.v, z, true, g.z[z.zoneCode]))}</tr>)}
+          {showTrades === 'y' && (board.data?.trades ?? []).map(t => { const v = t.carriedValue ?? t.lowestValue ?? 0; const pk = t.bids.find(b => b.isCarried)
             return <tr key={t.tradeId}><td><span className="code">{t.csiCode}</span> <a className="lnk" onClick={() => nav(`../scope-match?trade=${t.tradeId}`, { relative: 'path' })}>{t.tradeName}</a>
               <span className="muted" style={{ marginLeft: 6, fontSize: 11.5 }}>{pk ? pk.bidderName : t.plugAmount ? 'plug' : <span className="tag y">Nothing picked</span>}</span></td>
               <td /><td className="n">{money(v)}</td><td className="n mut">{CT ? pct(v / CT * 100, 2) : '–'}</td><td className="n mut">{area ? (v / area).toFixed(2) : '–'}</td>

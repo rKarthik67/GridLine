@@ -1,0 +1,66 @@
+/* ================= Theme v3: "Forest & Lime" — the Precon-E palette on Gridline's layout ================= */
+:root{
+  --bg:#f5f5f0;--surface:#fff;--ink:#18221f;--ink2:#34453a;--muted:#646f68;--faint:#8f9a92;
+  --line:#e4e8e1;--line2:#dce2db;--soft:#eef1ea;--hover:#f6f8f2;
+  --primary:#27624d;--primary-d:#1e4c3b;--primary-50:#eaf2ed;--primary-100:#cfe3d8;
+  --accent:#d8ef58;--accent-50:#f4f9d9;--accent-d:#5c6b14;--accent-ink:#283518;
+  --good:#27624d;--good-50:#e5f2ec;--bad:#b33632;--bad-50:#fbeceb;--warn:#946211;--warn-50:#fff6e0;
+  --side:#18221f;--side2:#243029;--side-t:#c1cbc4;
+  --shadow:0 1px 2px #18221f0a,0 8px 24px -16px #18221f33;
+  --font:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --r:10px;
+}
+body{background:var(--bg)}
+button:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+/* dark ink sidebar, lime for the current page */
+.side{background:var(--side);border-right:0;color:var(--side-t)}
+.mark{background:var(--accent);color:var(--accent-ink);border-radius:9px;box-shadow:none;font-weight:800}
+.brand b{color:#fff;letter-spacing:-.04em}.brand b i{color:var(--accent)}
+.brand small{color:#9daaa1;border-color:#ffffff25}
+.brand-co{display:block;font-size:11px;color:#9daaa1;font-weight:500;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.collapsed .brand-co{display:none}
+.pswitch{background:#ffffff0b;border-color:#ffffff25}.pswitch:hover{border-color:#ffffff50}
+.pswitch .pi{background:#ffffff12;color:var(--accent);box-shadow:none}
+.pswitch .pt small{color:#9daaa1}.pswitch .pt b{color:#fff}
+.chip.stage{background:#d8ef5826;color:var(--accent)}.chip.ver{background:#ffffff14;color:#e2e9df;border:0}
+.nh{color:#828a80}
+.nl a{color:var(--side-t)}.nl a:hover{background:#ffffff0d;color:#fff}
+.nl a.on{background:#ffffff0d;color:var(--accent)}
+.nl a.on::before{background:var(--accent)}
+.nl a .cnt{color:#9daaa1;background:transparent;border:1px solid #ffffff25;border-radius:999px;padding:0 6px}
+.nav{scrollbar-color:#ffffff22 transparent}
+.sidefoot{border-top-color:#ffffff25}.sidefoot a,.sidefoot button{color:var(--side-t)}.sidefoot a:hover,.sidefoot button:hover{background:#ffffff0d;color:#fff}
+.top{background:#ffffffcc;backdrop-filter:blur(8px);border-bottom-color:var(--line)}
+.avatar{background:#d8e5d0;color:#27362b}
+.kpi.kdark{background:var(--ink);color:#fff;border:0}
+.kpi.kdark .k{color:#9daaa1}.kpi.kdark .v{color:var(--accent)}.kpi.kdark .d{color:#c1cbc4}
+.welcome{background:var(--ink)}
+.welcome p{color:#c1cbc4}.welcome .eb{color:var(--accent)}
+.build .s.fin{background:var(--ink)}.build .s.fin .k{color:#9daaa1}.build .s.fin .v{color:var(--accent)}
+.signin .art{background:var(--ink)}
+.signin .art h1 i{color:var(--accent)}
+.dg thead th{background:#eef1ea;color:#455349}
+.dg tr.grp td{background:var(--soft)!important;color:var(--primary)}
+.dg tr.tot td{background:var(--primary-50)!important;color:var(--ink);border-top:2px solid var(--primary)}
+.dg tr.tot td.n{color:var(--ink)}
+.dg tfoot td{background:#fff;color:var(--ink);border-top:2px solid var(--primary);box-shadow:0 -6px 14px -10px #27624d55}
+.dg tfoot td.n{color:var(--ink)}.dg tfoot td.acc{color:var(--primary)}
+.dg tbody tr.sel td{background:#eaf2e4}
+.btn{border-radius:7px;font-weight:600}
+.btn.a{background:var(--ink);border-color:var(--ink)}
+.tag.k{background:var(--primary);color:#fff}
+.tag.o{background:var(--accent);color:var(--accent-ink)}
+.heat{background:rgba(39,98,77,var(--a))}
+.seg button[aria-pressed=true]{color:var(--primary)}
+.pills button[aria-pressed=true]{background:var(--primary);border-color:var(--primary)}
+.tabs button[aria-selected=true]{color:#204b39}
+.tabs button[aria-selected=true]::after{background:#49652a}
+td.carried{background:var(--accent-50)!important;box-shadow:inset 3px 0 0 var(--accent)}
+th.carh{background:var(--accent-50)!important;box-shadow:inset 0 3px 0 var(--accent)}
+.carry[aria-checked=true]{background:var(--accent);border-color:#c7db50;color:var(--accent-ink)}.carry[aria-checked=true] i{border-color:var(--accent-ink);background:var(--accent-ink)}
+.inp,.sbox{border-radius:6px}
+.inp:focus,textarea.inp:focus,select.inp:focus,.sbox:focus-within{border-color:#4c755e;box-shadow:0 0 0 3px #27624d15}
+.card{box-shadow:none}
+.modal{border:1px solid var(--line2)}.mh{background:#f5f7f1}
+.ph h1{font-weight:600;letter-spacing:-.035em}
+.ph .eb{color:var(--accent-d)}

@@ -1,0 +1,49 @@
+# Gridline, self-hosted: PostgreSQL + the Gridline image. Copy .env.example to .env and set the passwords first.
+#   docker compose up -d --build
+#   open http://localhost:8080 and create your company (or sign in with the demo users if DEMO data was loaded)
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: gridline
+      POSTGRES_USER: gridline
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gridline -d gridline"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    image: gridline:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${GRIDLINE_PORT:-8080}:8080"
+    environment:
+      ConnectionStrings__Gridline: "Host=db;Port=5432;Database=gridline;Username=gridline;Password=${POSTGRES_PASSWORD};Search Path=gridline,public"
+      Db__AutoMigrate: "true"
+      Email__PublicUrl: ${PUBLIC_URL:-http://localhost:8080}
+      Email__From: ${EMAIL_FROM:-Gridline <no-reply@example.com>}
+      Email__Smtp__Host: ${SMTP_HOST:-}
+      Email__Smtp__Port: ${SMTP_PORT:-587}
+      Email__Smtp__User: ${SMTP_USER:-}
+      Email__Smtp__Password: ${SMTP_PASSWORD:-}
+      Signup__Enabled: ${SIGNUP_ENABLED:-true}
+      Swagger__Enabled: ${SWAGGER_ENABLED:-false}
+      Security__Hsts: ${HSTS:-false}          # turn on once TLS terminates in front of the app
+      AzureOpenAI__Endpoint: ${AZURE_OPENAI_ENDPOINT:-}
+      AzureOpenAI__Deployment: ${AZURE_OPENAI_DEPLOYMENT:-}
+      AzureOpenAI__Key: ${AZURE_OPENAI_KEY:-}
+    volumes:
+      - uploads:/data
+
+volumes:
+  pgdata:
+  uploads:

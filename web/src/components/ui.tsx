@@ -73,7 +73,7 @@ export function Kpi({ k, v, d, cls, dc }: { k: string; v: ReactNode; d?: ReactNo
 }
 export function Loading({ what }: { what: string }) { return <div className="empty">Loading {what}…</div> }
 export function Failed({ error }: { error: unknown }) { return <div className="empty">Couldn't load: {(error as Error)?.message}</div> }
-export const LETTERC = ['#6a32d4', '#0ea5e9', '#e11d74', '#16a34a', '#f59e0b', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c']
+export const LETTERC = ['#27624d', '#0ea5e9', '#e11d74', '#16a34a', '#f59e0b', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c']
 export const letterColour = (laneNo: number) => LETTERC[(laneNo - 1) % LETTERC.length]
 
 /** Right-click menu at the mouse position (like the original grid menus). Items: null = separator. */
