@@ -54,6 +54,7 @@ public static class TradeEndpoints
             FROM Trade t JOIN ProjectVersion v ON v.VersionId = t.VersionId AND v.IsPrimary JOIN Project p ON p.ProjectId = v.ProjectId
             JOIN ProjectVersion me ON me.VersionId = @versionId JOIN Project mp ON mp.ProjectId = me.ProjectId
             WHERE t.ArchivedAt IS NULL AND t.CarriedValue > 0 AND v.GrossArea > 0 AND p.ProjectId <> mp.ProjectId AND p.ArchivedAt IS NULL
+              AND p.CompanyId = mp.CompanyId   -- a company's benchmarks come only from its own past projects
               AND p.ProjectType IS NOT DISTINCT FROM mp.ProjectType AND p.Stage IN ('submitted','awarded','lost','bidding')
             GROUP BY t.CsiCode
             """, args, tx)).ToDictionary(b => b.CsiCode);
@@ -333,24 +334,29 @@ public static class TradeEndpoints
             return Results.Ok(new { trades = n });
         });
 
-        api.MapGet("/benchmarks", async (string? csi, string? type, Db db) =>
+        api.MapGet("/benchmarks", async (string? csi, string? type, HttpContext ctx, Db db) =>
         {
             await using var c = await db.Open();
             return await c.QueryAsync("""
                 SELECT CsiCode AS "csiCode", ProjectType AS "projectType", Projects AS "projects", LowPerSf AS "lowPerSf", MedianPerSf AS "medianPerSf", HighPerSf AS "highPerSf"
-                FROM TradeBenchmark WHERE (@csi IS NULL OR CsiCode = @csi) AND (@type IS NULL OR ProjectType = @type) ORDER BY CsiCode, ProjectType
-                """, new { csi, type });
+                FROM TradeBenchmark WHERE CompanyId = @cid AND (@csi IS NULL OR CsiCode = @csi) AND (@type IS NULL OR ProjectType = @type) ORDER BY CsiCode, ProjectType
+                """, new { csi, type, cid = ctx.Me().CompanyId });
         });
     }
 
+    /// <summary>The company a trade belongs to (through its project), for directory lookups.</summary>
+    public static Task<long> CompanyOfTrade(Work w, long tradeId) =>
+        w.Scalar<long>("SELECT p.CompanyId FROM Trade t JOIN Project p ON p.ProjectId = t.ProjectId WHERE t.TradeId = @tradeId", new { tradeId });
+
     public static async Task<long> AddBid(Work w, long tradeId, BidIn body, string source)
     {
+        var cid = await CompanyOfTrade(w, tradeId);
         var name = body.BidderName?.Trim();
         long? partnerId = body.PartnerId;
-        if (partnerId is long pid) name ??= await w.One<string>("SELECT CompanyName FROM TradePartner WHERE PartnerId = @pid", new { pid }) ?? throw ApiException.Bad("Unknown trade partner.");
+        if (partnerId is long pid) name ??= await w.One<string>("SELECT CompanyName FROM TradePartner WHERE PartnerId = @pid AND CompanyId = @cid", new { pid, cid }) ?? throw ApiException.Bad("Unknown trade partner.");
         if (string.IsNullOrWhiteSpace(name)) throw ApiException.Bad("Give the bidder a name.");
-        partnerId ??= await w.Scalar<long?>("SELECT PartnerId FROM TradePartner WHERE lower(CompanyName) = lower(@name)", new { name });
-        partnerId ??= await w.Scalar<long>("INSERT INTO TradePartner (CompanyName, AddedByUser) VALUES (@name, true) RETURNING PartnerId", new { name });
+        partnerId ??= await w.Scalar<long?>("SELECT PartnerId FROM TradePartner WHERE CompanyId = @cid AND lower(CompanyName) = lower(@name)", new { name, cid });
+        partnerId ??= await w.Scalar<long>("INSERT INTO TradePartner (CompanyId, CompanyName, AddedByUser) VALUES (@cid, @name, true) RETURNING PartnerId", new { name, cid });
         long? personId = null;
         if (!string.IsNullOrWhiteSpace(body.Email) || !string.IsNullOrWhiteSpace(body.Contact))
         {

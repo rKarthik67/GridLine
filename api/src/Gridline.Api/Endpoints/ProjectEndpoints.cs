@@ -66,11 +66,12 @@ public static class ProjectEndpoints
                        coalesce(r.IsFavourite, false) AS "isFavourite", r.OpenedAt AS "openedAt",
                        (SELECT count(DISTINCT w.UserId) FROM WhoIsHere w WHERE w.ProjectId = s.ProjectId) AS "peopleHere"
                 FROM ProjectSummary s LEFT JOIN RecentProject r ON r.ProjectId = s.ProjectId AND r.UserId = @uid
-                WHERE (@admin OR @edit OR EXISTS (SELECT 1 FROM ProjectMember m WHERE m.ProjectId = s.ProjectId AND m.UserId = @uid) OR @view)
+                WHERE s.CompanyId = @cid
+                  AND (@admin OR @edit OR EXISTS (SELECT 1 FROM ProjectMember m WHERE m.ProjectId = s.ProjectId AND m.UserId = @uid) OR @view)
                   AND (@stage IS NULL OR s.Stage::text = @stage)
                   AND (@q IS NULL OR s.ProjectName ILIKE '%' || @q || '%' OR s.ProjectNo ILIKE '%' || @q || '%' OR s.ClientName ILIKE '%' || @q || '%' OR s.City ILIKE '%' || @q || '%')
                 ORDER BY coalesce(r.IsFavourite, false) DESC, r.OpenedAt DESC NULLS LAST, s.BidDueOn NULLS LAST, s.ProjectNo
-                """, new { uid = me.UserId, admin = me.IsAdmin, edit = me.Can("project.edit"), view = me.Can("project.view"),
+                """, new { uid = me.UserId, cid = me.CompanyId, admin = me.IsAdmin, edit = me.Can("project.edit"), view = me.Can("project.view"),
                            stage = string.IsNullOrEmpty(stage) || stage == "all" ? null : stage, q = string.IsNullOrWhiteSpace(search) ? null : search.Trim() });
         });
 
@@ -91,7 +92,7 @@ public static class ProjectEndpoints
         {
             var me = ctx.Me();
             await using var c = await db.Open();
-            var id = await c.ExecuteScalarAsync<long?>("SELECT ProjectId FROM Project WHERE (ProjectNo = @no OR ProjectId::text = @no) AND ArchivedAt IS NULL", new { no })
+            var id = await c.ExecuteScalarAsync<long?>("SELECT ProjectId FROM Project WHERE (ProjectNo = @no OR ProjectId::text = @no) AND ArchivedAt IS NULL AND CompanyId = @cid", new { no, cid = me.CompanyId })
                      ?? throw ApiException.NotFound($"Project {no}");
             var s = await Access.Project(c, null, me, id, "viewer");
             return await Detail(c, id, s.Access);
@@ -354,7 +355,11 @@ public static class ProjectEndpoints
             await using var w = await Work.Begin(ctx);
             await Access.Project(w, id, "owner");
             if (!body.Any(m => m.Access == "owner")) throw ApiException.Bad("A project needs at least one owner.");
-            await w.Exec("DELETE FROM ProjectMember WHERE ProjectId = @id AND NOT (UserId = ANY(@ids))", new { id, ids = body.Select(m => m.UserId).ToArray() });
+            if (body.Any(m => m.Access is not ("viewer" or "editor" or "owner"))) throw ApiException.Bad("Access must be viewer, editor or owner.");
+            var ids = body.Select(m => m.UserId).Distinct().ToArray();
+            if (await w.Scalar<int>("SELECT count(*) FROM AppUser WHERE UserId = ANY(@ids) AND CompanyId = @cid", new { ids, cid = w.User.CompanyId }) != ids.Length)
+                throw ApiException.Bad("Only people in your company can be members of a project.");
+            await w.Exec("DELETE FROM ProjectMember WHERE ProjectId = @id AND NOT (UserId = ANY(@ids))", new { id, ids });
             foreach (var m in body)
                 await w.Exec("INSERT INTO ProjectMember (ProjectId, UserId, Access) VALUES (@id, @UserId, @Access::AccessLevel) ON CONFLICT (ProjectId, UserId) DO UPDATE SET Access = EXCLUDED.Access",
                     new { id, m.UserId, m.Access });
@@ -444,26 +449,32 @@ public static class ProjectEndpoints
     /// <summary>Creates Project + Version 1 (primary) + default rates + the creator as owner.</summary>
     public static async Task<(long projectId, long versionId, string projectNo)> CreateProject(Work w, ProjectIn p, bool withMarkups = true)
     {
+        var cid = w.User.CompanyId;
+        if (cid == 0) throw ApiException.Forbidden("Projects are created by a signed-in person of a company.");
         var no = string.IsNullOrWhiteSpace(p.ProjectNo)
-            ? await w.Scalar<string>("UPDATE CompanyProfile SET NextProjectNo = NextProjectNo + 1 RETURNING ProjectNoPrefix || (NextProjectNo - 1)")
+            ? await w.Scalar<string>("UPDATE Company SET NextProjectNo = NextProjectNo + 1 WHERE CompanyId = @cid RETURNING ProjectNoPrefix || (NextProjectNo - 1)", new { cid })
             : p.ProjectNo.Trim();
-        if (await w.Scalar<bool>("SELECT EXISTS (SELECT 1 FROM Project WHERE ProjectNo = @no)", new { no }))
+        if (await w.Scalar<bool>("SELECT EXISTS (SELECT 1 FROM Project WHERE ProjectNo = @no AND CompanyId = @cid)", new { no, cid }))
             throw new ApiException(409, $"Project number {no} is already used.", "duplicate");
+        // estimator / manager must be people of this company; anyone else is simply not set
+        if (p.EstimatorId is long e0 && !await w.Scalar<bool>("SELECT EXISTS (SELECT 1 FROM AppUser WHERE UserId = @e0 AND CompanyId = @cid)", new { e0, cid })) p.EstimatorId = null;
+        if (p.ManagerId is long m0 && !await w.Scalar<bool>("SELECT EXISTS (SELECT 1 FROM AppUser WHERE UserId = @m0 AND CompanyId = @cid)", new { m0, cid })) p.ManagerId = null;
         var state = string.IsNullOrWhiteSpace(p.StateCode) ? null : p.StateCode.Trim().ToUpperInvariant();
         if (state is not null && !await w.Scalar<bool>("SELECT EXISTS (SELECT 1 FROM UsState WHERE StateCode = @state)", new { state }))
             throw ApiException.Bad($"'{state}' is not a US state code.");
         var pid = await w.Scalar<long>("""
-            INSERT INTO Project (ProjectNo, ProjectName, Stage, ClientName, ProjectType, ContractType, DivisionId, BranchId, Street, City, StateCode, CountyName, PostalCode,
+            INSERT INTO Project (CompanyId, ProjectNo, ProjectName, Stage, ClientName, ProjectType, ContractType, DivisionId, BranchId, Street, City, StateCode, CountyName, PostalCode,
                                  BidDueOn, CrmRef, EstimatorId, ManagerId, CreatedBy, ChangedBy)
-            VALUES (@no, @ProjectName, coalesce(@Stage, 'lead')::ProjectStage, @ClientName, @ProjectType, @ContractType, @DivisionId, @BranchId, @Street, @City, @state, @CountyName, @PostalCode,
-                    @BidDueOn, @CrmRef, coalesce(@EstimatorId, @u), @ManagerId, @u, @u) RETURNING ProjectId
-            """, new { no, p.ProjectName, Stage = string.IsNullOrWhiteSpace(p.Stage) ? null : p.Stage.Trim().ToLowerInvariant(), p.ClientName, p.ProjectType, p.ContractType,
+            VALUES (@cid, @no, @ProjectName, coalesce(@Stage, 'lead')::ProjectStage, @ClientName, @ProjectType, @ContractType,
+                    (SELECT DivisionId FROM Division WHERE DivisionId = @DivisionId AND CompanyId = @cid), (SELECT BranchId FROM Branch WHERE BranchId = @BranchId AND CompanyId = @cid),
+                    @Street, @City, @state, @CountyName, @PostalCode, @BidDueOn, @CrmRef, coalesce(@EstimatorId, @u), @ManagerId, @u, @u) RETURNING ProjectId
+            """, new { cid, no, p.ProjectName, Stage = string.IsNullOrWhiteSpace(p.Stage) ? null : p.Stage.Trim().ToLowerInvariant(), p.ClientName, p.ProjectType, p.ContractType,
                        p.DivisionId, p.BranchId, p.Street, p.City, state, p.CountyName, p.PostalCode, p.BidDueOn, p.CrmRef, p.EstimatorId, p.ManagerId, u = w.User.UserId });
         var vid = await w.Scalar<long>("""
             INSERT INTO ProjectVersion (ProjectId, VersionNo, VersionLabel, IsPrimary, Status, EditionId, RequirementSetId, GrossArea, CreatedBy, ChangedBy)
             VALUES (@pid, 1, 'Version 1', true, 'active', (SELECT EditionId FROM CodeEdition WHERE IsCurrent LIMIT 1),
-                    (SELECT RequirementSetId FROM RequirementSet WHERE IsTemplate ORDER BY RequirementSetId LIMIT 1), @area, @u, @u) RETURNING VersionId
-            """, new { pid, area = p.GrossArea ?? 0, u = w.User.UserId });
+                    (SELECT RequirementSetId FROM RequirementSet WHERE IsTemplate AND CompanyId = @cid ORDER BY RequirementSetId LIMIT 1), @area, @u, @u) RETURNING VersionId
+            """, new { pid, cid, area = p.GrossArea ?? 0, u = w.User.UserId });
         if (withMarkups)
             await w.Exec("""
                 INSERT INTO VersionMarkup (VersionId, MarkupCode, RatePct)
@@ -487,7 +498,8 @@ public static class ProjectEndpoints
             INSERT INTO CostLine (VersionId, Area, CategoryName, ItemName, SortKey, Qty, UomCode, Rate, ChangedBy)
             SELECT @versionId, k.Area, i.CategoryName, i.ItemName, row_number() OVER (PARTITION BY k.Area ORDER BY i.SortOrder, i.CostKitItemId),
                    coalesce(i.DefaultQty, 0), i.UomCode, coalesce(i.DefaultRate, 0), @u
-            FROM CostKit k JOIN CostKitItem i ON i.CostKitId = k.CostKitId WHERE k.IsDefault
+            FROM CostKit k JOIN CostKitItem i ON i.CostKitId = k.CostKitId
+            WHERE k.IsDefault AND k.CompanyId = (SELECT p.CompanyId FROM ProjectVersion v JOIN Project p ON p.ProjectId = v.ProjectId WHERE v.VersionId = @versionId)
             """, new { versionId, u = w.User.UserId });
     }
 }

@@ -271,7 +271,7 @@ public static class ScopeEndpoints
     /// <summary>Adds a scope kit's lines to the end of the trade items (skips lines whose text is already there).</summary>
     public static async Task<int> ApplyKit(Work w, long tradeId, long kitId)
     {
-        if (!await w.Scalar<bool>("SELECT EXISTS (SELECT 1 FROM ScopeKit WHERE KitId = @kitId)", new { kitId })) throw ApiException.Bad("Unknown scope kit.");
+        await Access.ScopeKit(w, kitId);   // the kit must belong to the caller's company
         var start = await w.Scalar<decimal?>("SELECT max(SortKey) FROM ScopeLine WHERE TradeId = @tradeId AND Section = 'tradeitem'", new { tradeId }) ?? 0;
         return await w.Exec("""
             INSERT INTO ScopeLine (TradeId, Section, SortKey, IsHeading, LineText, Desired, ChangedBy)

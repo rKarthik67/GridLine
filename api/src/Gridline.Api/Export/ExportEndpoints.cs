@@ -102,9 +102,9 @@ public static class ExportEndpoints
         var rows = (await w.Query("""
             SELECT s.ProjectNo, s.ProjectName, s.Stage::text AS Stage, s.ClientName, s.ProjectType, s.City, s.StateCode, s.BidDueOn, s.PrimaryVersionNo,
                    s.GrossArea, s.Trades, s.TradesCarried, s.TradesTotal, s.ContractTotal
-            FROM ProjectSummary s WHERE @all OR EXISTS (SELECT 1 FROM ProjectMember m WHERE m.ProjectId = s.ProjectId AND m.UserId = @u)
+            FROM ProjectSummary s WHERE s.CompanyId = @cid AND (@all OR EXISTS (SELECT 1 FROM ProjectMember m WHERE m.ProjectId = s.ProjectId AND m.UserId = @u))
             ORDER BY s.BidDueOn NULLS LAST, s.ProjectNo
-            """, new { all = me.IsAdmin || me.Can("project.edit") || me.Can("project.view"), u = me.UserId })).Cast<IDictionary<string, object?>>().ToList();
+            """, new { all = me.IsAdmin || me.Can("project.edit") || me.Can("project.view"), u = me.UserId, cid = me.CompanyId })).Cast<IDictionary<string, object?>>().ToList();
         using var wb = new XLWorkbook();
         var ws = Sheet(wb, "Portfolio", "Portfolio", null, 13);
         Header(ws, 4, "Project no.", "Project", "Stage", "Client", "Type", "City", "State", "Bid due", "Version", "Gross SF", "Trades picked", "Trades total", "Contract total");

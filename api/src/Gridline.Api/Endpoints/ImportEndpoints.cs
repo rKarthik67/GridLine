@@ -78,21 +78,21 @@ public static class ImportEndpoints
         // database checks: project number free, state code, existing trades (for "into version")
         if (versionId is null)
         {
-            if (m.P("Project number") is string no && await w.Scalar<bool>("SELECT EXISTS (SELECT 1 FROM Project WHERE ProjectNo = @no)", new { no }))
+            if (m.P("Project number") is string no && await w.Scalar<bool>("SELECT EXISTS (SELECT 1 FROM Project WHERE ProjectNo = @no AND CompanyId = @cid)", new { no, cid = me.CompanyId }))
                 m.Issues.Add(new("Project", null, "Project number", "error", $"Project number {no} is already used. Leave it blank to auto-number."));
             if (m.P("State") is string state && state.Length == 2 && !await w.Scalar<bool>("SELECT EXISTS (SELECT 1 FROM UsState WHERE StateCode = upper(@state))", new { state }))
                 m.Issues.Add(new("Project", null, "State", "error", $"'{state}' is not a US state code."));
             foreach (var k in new[] { "Estimator", "Project manager" })
-                if (m.P(k) is string who && !await w.Scalar<bool>("SELECT EXISTS (SELECT 1 FROM AppUser WHERE LoginEmail = @who::citext OR split_part(LoginEmail::text, '@', 1) = lower(split_part(@who, '@', 1)) OR lower(GivenName || ' ' || FamilyName) = lower(@who))", new { who }))
+                if (m.P(k) is string who && !await w.Scalar<bool>("SELECT EXISTS (SELECT 1 FROM AppUser WHERE CompanyId = @cid AND (LoginEmail = @who::citext OR split_part(LoginEmail::text, '@', 1) = lower(split_part(@who, '@', 1)) OR lower(GivenName || ' ' || FamilyName) = lower(@who)))", new { who, cid = me.CompanyId }))
                     m.Issues.Add(new("Project", null, k, "warning", $"{who} is not a Gridline user; {k.ToLowerInvariant()} will be left empty."));
         }
-        var kits = (await w.Query<string>("SELECT lower(KitName) FROM ScopeKit WHERE IsActive")).ToHashSet();
+        var kits = (await w.Query<string>("SELECT lower(KitName) FROM ScopeKit WHERE IsActive AND CompanyId = @cid", new { cid = me.CompanyId })).ToHashSet();
         foreach (var t in m.Trades.Where(t => t.Kit is not null && !kits.Contains(t.Kit.ToLowerInvariant())))
             m.Issues.Add(new("Trades", t.Row, "Scope kit", "warning", $"Scope kit '{t.Kit}' was not found; the trade starts without kit lines."));
         var existing = versionId is long v2
             ? (await w.Query<string>("SELECT CsiCode FROM Trade WHERE VersionId = @v2 AND ArchivedAt IS NULL", new { v2 })).ToHashSet() : [];
         var names = m.Bidders.Select(b => b.Partner.ToLowerInvariant()).Distinct().ToArray();
-        var known = (await w.Query<string>("SELECT lower(CompanyName) FROM TradePartner WHERE lower(CompanyName) = ANY(@names)", new { names })).ToHashSet();
+        var known = (await w.Query<string>("SELECT lower(CompanyName) FROM TradePartner WHERE CompanyId = @cid AND lower(CompanyName) = ANY(@names)", new { names, cid = me.CompanyId })).ToHashSet();
 
         var bidders = m.Bidders.GroupBy(b => b.Code).ToDictionary(g => g.Key, g => g.Count());
         var ok = m.ErrorCount == 0;

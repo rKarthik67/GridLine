@@ -245,13 +245,13 @@ public static class TeamEndpoints
             var role = body.RoleLabel?.Trim(); decimal? cost = body.HourlyCost; int? roleId = body.StaffRoleId;
             if (body.StaffId is long sid)
             {
-                var st = await w.One<(string name, int? roleId, decimal? cost, string? roleName)>("SELECT s.FullName, s.StaffRoleId, s.HourlyCost, r.RoleName FROM Staff s LEFT JOIN StaffRole r ON r.StaffRoleId = s.StaffRoleId WHERE s.StaffId = @sid", new { sid });
+                var st = await w.One<(string name, int? roleId, decimal? cost, string? roleName)>("SELECT s.FullName, s.StaffRoleId, s.HourlyCost, r.RoleName FROM Staff s LEFT JOIN StaffRole r ON r.StaffRoleId = s.StaffRoleId WHERE s.StaffId = @sid AND s.CompanyId = @cid", new { sid, cid = w.User.CompanyId });
                 if (st.name is null) throw ApiException.Bad("Unknown staff member.");
                 role ??= st.roleName; cost ??= st.cost; roleId ??= st.roleId;
             }
             if (roleId is int rid)
             {
-                var r = await w.One<(string name, decimal? rate)>("SELECT RoleName, DefaultRate FROM StaffRole WHERE StaffRoleId = @rid", new { rid });
+                var r = await w.One<(string name, decimal? rate)>("SELECT RoleName, DefaultRate FROM StaffRole WHERE StaffRoleId = @rid AND CompanyId = @cid", new { rid, cid = w.User.CompanyId });
                 if (r.name is null) throw ApiException.Bad("Unknown employee role.");
                 role ??= r.name; cost ??= r.rate;
             }
@@ -286,7 +286,8 @@ public static class TeamEndpoints
             decimal? cost = body.HourlyCost; int? roleId = body.StaffRoleId; string? role = body.RoleLabel;
             if (body.StaffId is long sid && body.HourlyCost is null)
             {   // Change employee: take the person's posting rate and role (was: cmdSelectEmployee)
-                var st = await w.One<(decimal? cost, int? roleId, string? roleName)>("SELECT s.HourlyCost, s.StaffRoleId, r.RoleName FROM Staff s LEFT JOIN StaffRole r ON r.StaffRoleId = s.StaffRoleId WHERE s.StaffId = @sid", new { sid });
+                var st = await w.One<(decimal? cost, int? roleId, string? roleName)>("SELECT s.HourlyCost, s.StaffRoleId, r.RoleName FROM Staff s LEFT JOIN StaffRole r ON r.StaffRoleId = s.StaffRoleId WHERE s.StaffId = @sid AND s.CompanyId = @cid", new { sid, cid = w.User.CompanyId });
+                if (st.cost is null && st.roleId is null && st.roleName is null) throw ApiException.Bad("Unknown staff member.");
                 cost = st.cost; roleId ??= st.roleId; role ??= st.roleName;
             }
             await w.Exec("""
@@ -515,6 +516,7 @@ public static class TeamEndpoints
         {
             await using var w = await Work.Begin(ctx);
             var s = await Access.Version(w, id);
+            await Access.CostKit(w, body.CostKitId);
             var area = await w.Scalar<string?>("SELECT Area::text FROM CostKit WHERE CostKitId = @k", new { k = body.CostKitId }) ?? throw ApiException.Bad("Unknown cost template.");
             var n = await w.Exec("""
                 INSERT INTO CostLine (VersionId, Area, CategoryName, ItemName, SortKey, Qty, UomCode, Rate, ChangedBy)

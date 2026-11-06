@@ -79,12 +79,12 @@ public static class PreconEndpoints
             int? roleId = body.StaffRoleId; decimal? rate = body.PostingRate;
             if (body.StaffId is long sid)
             {
-                var st = await w.One<(string name, int? roleId, decimal? cost)>("SELECT FullName, StaffRoleId, HourlyCost FROM Staff WHERE StaffId = @sid", new { sid });
+                var st = await w.One<(string name, int? roleId, decimal? cost)>("SELECT FullName, StaffRoleId, HourlyCost FROM Staff WHERE StaffId = @sid AND CompanyId = @cid", new { sid, cid = w.User.CompanyId });
                 if (st.name is null) throw ApiException.Bad("Unknown staff member.");
                 roleId ??= st.roleId; rate ??= st.cost;
             }
             if (roleId is null) throw ApiException.Bad("Pick an employee role.");
-            var r = await w.One<(string name, decimal? rate)>("SELECT RoleName, DefaultRate FROM StaffRole WHERE StaffRoleId = @roleId", new { roleId });
+            var r = await w.One<(string name, decimal? rate)>("SELECT RoleName, DefaultRate FROM StaffRole WHERE StaffRoleId = @roleId AND CompanyId = @cid", new { roleId, cid = w.User.CompanyId });
             var role = r.name ?? throw ApiException.Bad("Unknown employee role.");
             var key = (await w.Scalar<decimal?>("SELECT max(SortKey) FROM PreconMember WHERE VersionId = @id", new { id }) ?? 0) + 1;
             var mid = await w.Scalar<long>("""
@@ -105,12 +105,13 @@ public static class PreconEndpoints
             decimal? rate = body.PostingRate; int? roleId = body.StaffRoleId; string? role = null; decimal? quoted = null;
             if (body.StaffId is long sid)
             {
-                var st = await w.One<(decimal? cost, int? roleId)>("SELECT HourlyCost, StaffRoleId FROM Staff WHERE StaffId = @sid", new { sid });
+                var st = await w.One<(decimal? cost, int? roleId)>("SELECT HourlyCost, StaffRoleId FROM Staff WHERE StaffId = @sid AND CompanyId = @cid", new { sid, cid = w.User.CompanyId });
                 rate ??= st.cost; roleId ??= st.roleId;
             }
             if (roleId is int rid)
             {
-                var r = await w.One<(string name, decimal? rate)>("SELECT RoleName, DefaultRate FROM StaffRole WHERE StaffRoleId = @rid", new { rid });
+                var r = await w.One<(string name, decimal? rate)>("SELECT RoleName, DefaultRate FROM StaffRole WHERE StaffRoleId = @rid AND CompanyId = @cid", new { rid, cid = w.User.CompanyId });
+                if (r.name is null) throw ApiException.Bad("Unknown employee role.");
                 role = r.name; quoted = r.rate;
             }
             decimal? key = null;
@@ -171,9 +172,9 @@ public static class PreconEndpoints
                 SELECT a.ActivityId AS "activityId", a.ActivityName AS "taskName", a.IsDefault AS "isDefault", a.ProjectId IS NOT NULL AS "isAdhoc",
                        vt.SortOrder AS "sortOrder", vt.VersionId IS NOT NULL AS "selected"
                 FROM Activity a LEFT JOIN VersionTask vt ON vt.ActivityId = a.ActivityId AND vt.VersionId = @id
-                WHERE a.Phase = 'precon' AND a.IsActive AND (a.ProjectId IS NULL OR a.ProjectId = @p)
+                WHERE a.Phase = 'precon' AND a.IsActive AND a.CompanyId = @cid AND (a.ProjectId IS NULL OR a.ProjectId = @p)
                 ORDER BY vt.SortOrder NULLS LAST, a.SortOrder, a.ActivityId
-                """, new { id, p = s.ProjectId });
+                """, new { id, p = s.ProjectId, cid = ctx.Me().CompanyId });
         });
         api.MapPut("/versions/{id:long}/precon-tasks", async (long id, TasksPut body, HttpContext ctx) =>
         {
@@ -182,12 +183,13 @@ public static class PreconEndpoints
             var adhoc = (body.Adhoc ?? []).Select(x => x.Trim()).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             if ((body.ActivityIds?.Count ?? 0) == 0 && adhoc.Count == 0) throw ApiException.Bad("You must either select a task from the library or add an ad-hoc one.");
             if (adhoc.Any(x => x.Length > 120)) throw ApiException.Bad("Task names can be at most 120 characters.");
-            var allowed = (await w.Query<int>("SELECT ActivityId FROM Activity WHERE Phase = 'precon' AND IsActive AND (ProjectId IS NULL OR ProjectId = @p)", new { p = s.ProjectId })).ToHashSet();
+            var cid = w.User.CompanyId;
+            var allowed = (await w.Query<int>("SELECT ActivityId FROM Activity WHERE Phase = 'precon' AND IsActive AND CompanyId = @cid AND (ProjectId IS NULL OR ProjectId = @p)", new { p = s.ProjectId, cid })).ToHashSet();
             if ((body.ActivityIds ?? []).Any(a => !allowed.Contains(a))) throw ApiException.Bad("Unknown task.");
             var ids = new List<int>();
             foreach (var name in adhoc)   // ad-hoc tasks go first, like the original
                 ids.Add(await w.Scalar<int?>("SELECT ActivityId FROM Activity WHERE Phase = 'precon' AND ProjectId = @p AND lower(ActivityName) = lower(@name)", new { p = s.ProjectId, name })
-                        ?? await w.Scalar<int>("INSERT INTO Activity (Phase, ActivityName, SortOrder, ProjectId) VALUES ('precon', @name, 0, @p) RETURNING ActivityId", new { p = s.ProjectId, name }));
+                        ?? await w.Scalar<int>("INSERT INTO Activity (CompanyId, Phase, ActivityName, SortOrder, ProjectId) VALUES (@cid, 'precon', @name, 0, @p) RETURNING ActivityId", new { p = s.ProjectId, name, cid }));
             ids.AddRange((body.ActivityIds ?? []).Where(a => !ids.Contains(a)));
             await w.Exec("DELETE FROM VersionTask WHERE VersionId = @id", new { id });
             for (var i = 0; i < ids.Count; i++)

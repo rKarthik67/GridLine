@@ -165,8 +165,8 @@ public static class PortalEndpoints
     {
         var inv = await c.QueryFirstOrDefaultAsync<InviteRow>("""
             SELECT i.InviteId, i.TradeId, tr.ProjectId, tr.VersionId, i.Status::text AS Status, p.ProjectName, tr.TradeName, tr.CsiCode, tp.CompanyName,
-                   coalesce(tr.BidDueOn, p.BidDueOn) AS BidDueOn, i.Message, (SELECT DisplayName FROM CompanyProfile LIMIT 1) AS Company
-            FROM BidInvite i JOIN Trade tr ON tr.TradeId = i.TradeId JOIN Project p ON p.ProjectId = tr.ProjectId JOIN TradePartner tp ON tp.PartnerId = i.PartnerId
+                   coalesce(tr.BidDueOn, p.BidDueOn) AS BidDueOn, i.Message, co.DisplayName AS Company
+            FROM BidInvite i JOIN Trade tr ON tr.TradeId = i.TradeId JOIN Project p ON p.ProjectId = tr.ProjectId JOIN Company co ON co.CompanyId = p.CompanyId JOIN TradePartner tp ON tp.PartnerId = i.PartnerId
             WHERE i.TokenHash = @h AND i.ExpiresAt > now() AND i.Status NOT IN ('withdrawn','expired','declined') AND tr.ArchivedAt IS NULL
             """, new { h = Tokens.Hash(token) }, t);
         return inv ?? throw ApiException.NotFound("This bid link");

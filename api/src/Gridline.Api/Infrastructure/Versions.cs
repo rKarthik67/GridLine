@@ -79,6 +79,7 @@ public static class PreconSetup
     public static Task DefaultTasks(Work w, long versionId) => w.Exec("""
         INSERT INTO VersionTask (VersionId, ActivityId, SortOrder)
         SELECT @versionId, ActivityId, SortOrder FROM Activity WHERE Phase = 'precon' AND IsDefault AND ProjectId IS NULL AND IsActive
+          AND CompanyId = (SELECT p.CompanyId FROM ProjectVersion v JOIN Project p ON p.ProjectId = v.ProjectId WHERE v.VersionId = @versionId)
         ON CONFLICT DO NOTHING
         """, new { versionId });
 }

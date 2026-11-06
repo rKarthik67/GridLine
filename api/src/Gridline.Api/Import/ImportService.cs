@@ -20,7 +20,7 @@ public static class ImportService
             ProjectName = m.P("Project name"), ProjectNo = m.P("Project number"), ClientName = m.P("Client"), ProjectType = m.P("Project type"),
             ContractType = m.P("Contract type"), Stage = Template.Stage(m.P("Stage")), Street = m.P("Address"), City = m.P("City"), StateCode = m.P("State"),
             CountyName = m.P("County"), BidDueOn = m.PDate("Bid due date"), GrossArea = (int?)m.PNum("Gross SF"),
-            DivisionId = m.P("Business unit") is string bu ? await w.Scalar<int?>("SELECT DivisionId FROM Division WHERE lower(DivisionName) = lower(@bu) OR lower(ShortCode) = lower(@bu)", new { bu }) : null,
+            DivisionId = m.P("Business unit") is string bu ? await w.Scalar<int?>("SELECT DivisionId FROM Division WHERE CompanyId = @cid AND (lower(DivisionName) = lower(@bu) OR lower(ShortCode) = lower(@bu))", new { bu, cid = w.User.CompanyId }) : null,
             EstimatorId = await FindUser(w, m.P("Estimator")), ManagerId = await FindUser(w, m.P("Project manager")),
         };
         var (pid, vid, no) = await ProjectEndpoints.CreateProject(w, p);
@@ -40,7 +40,7 @@ public static class ImportService
 
         if (m.Requirements.Count > 0)
         {
-            var setId = await w.Scalar<long>("INSERT INTO RequirementSet (SetName, IsTemplate, DivisionId) VALUES (@n, false, @d) RETURNING RequirementSetId", new { n = $"{p.ProjectName} – base requirements", d = p.DivisionId });
+            var setId = await w.Scalar<long>("INSERT INTO RequirementSet (CompanyId, SetName, IsTemplate, DivisionId) VALUES (@cid, @n, false, @d) RETURNING RequirementSetId", new { cid = w.User.CompanyId, n = $"{p.ProjectName} – base requirements", d = p.DivisionId });
             await w.Exec("UPDATE ProjectVersion SET RequirementSetId = @setId WHERE VersionId = @vid", new { setId, vid });
         }
 
@@ -66,10 +66,10 @@ public static class ImportService
         var s = who.Trim();
         var local = s.Contains('@') ? s[..s.IndexOf('@')] : null;
         return await w.Scalar<long?>("""
-            SELECT UserId FROM AppUser WHERE IsActive AND (LoginEmail = @s::citext OR split_part(LoginEmail::text, '@', 1) = lower(@local)
+            SELECT UserId FROM AppUser WHERE IsActive AND CompanyId = @cid AND (LoginEmail = @s::citext OR split_part(LoginEmail::text, '@', 1) = lower(@local)
                 OR lower(GivenName || ' ' || FamilyName) = lower(@s) OR lower(left(GivenName, 1) || '. ' || FamilyName) = lower(@s) OR lower(left(GivenName, 1) || '.' || FamilyName) = lower(@s))
             ORDER BY UserId LIMIT 1
-            """, new { s, local });
+            """, new { s, local, cid = w.User.CompanyId });
     }
 
     static async Task<(int added, int updated, int bids, int partners)> Trades(Work w, long vid, ImportModel m, bool newProject)
@@ -134,7 +134,7 @@ public static class ImportService
 
         await w.Exec("CREATE INDEX ON imptrade (code); CREATE INDEX ON impbid (code); CREATE INDEX ON impreq (code); ANALYZE imptrade; ANALYZE impbid; ANALYZE impsplit; ANALYZE impreq;");
         Lap("copy to staging");
-        var p = new { vid, u };
+        var p = new { vid, u, cid = await w.Scalar<long>("SELECT p.CompanyId FROM ProjectVersion v JOIN Project p ON p.ProjectId = v.ProjectId WHERE v.VersionId = @vid", new { vid }) };
         var updated = newProject ? 0 : await w.Exec("""
             UPDATE Trade t SET BudgetValue = coalesce(i.budget, t.BudgetValue), TeamNote = coalesce(t.TeamNote, i.notes), BidDueOn = coalesce(i.due, t.BidDueOn), ChangedBy = @u
             FROM imptrade i WHERE t.VersionId = @vid AND t.ArchivedAt IS NULL AND t.ScopeNo = 1 AND t.CsiCode = i.code
@@ -145,8 +145,8 @@ public static class ImportService
                    (SELECT coalesce(max(SortOrder), 0) FROM Trade WHERE VersionId = @vid) + row_number() OVER (ORDER BY i.rowno) * 10, @u
             FROM imptrade i
             LEFT JOIN LATERAL (SELECT x.CodeId FROM WorkCode x JOIN CodeGroup g ON g.GroupId = x.GroupId JOIN CodeEdition e ON e.EditionId = g.EditionId WHERE x.CsiCode = i.code ORDER BY e.IsCurrent DESC LIMIT 1) wc ON true
-            LEFT JOIN LATERAL (SELECT KitId FROM ScopeKit WHERE lower(KitName) = lower(i.kit) LIMIT 1) k ON true
-            LEFT JOIN LATERAL (SELECT UserId FROM AppUser WHERE i.estimator IS NOT NULL AND (LoginEmail = i.estimator::citext OR lower(GivenName || ' ' || FamilyName) = lower(i.estimator)
+            LEFT JOIN LATERAL (SELECT KitId FROM ScopeKit WHERE CompanyId = @cid AND lower(KitName) = lower(i.kit) LIMIT 1) k ON true
+            LEFT JOIN LATERAL (SELECT UserId FROM AppUser WHERE CompanyId = @cid AND i.estimator IS NOT NULL AND (LoginEmail = i.estimator::citext OR lower(GivenName || ' ' || FamilyName) = lower(i.estimator)
                                 OR lower(left(GivenName, 1) || '. ' || FamilyName) = lower(i.estimator) OR split_part(LoginEmail::text, '@', 1) = lower(split_part(i.estimator, '@', 1))) LIMIT 1) eu ON true
             WHERE NOT EXISTS (SELECT 1 FROM Trade t WHERE t.VersionId = @vid AND t.CsiCode = i.code AND t.ArchivedAt IS NULL)
             """, p);
@@ -154,19 +154,19 @@ public static class ImportService
         Lap("trades");
         // trade partners and their contacts
         var partners = await w.Exec("""
-            INSERT INTO TradePartner (CompanyName, AddedByUser, DiverseTags)
-            SELECT DISTINCT ON (lower(partner)) partner, true, CASE WHEN diverse THEN ARRAY['diverse'] ELSE '{}'::text[] END FROM impbid ORDER BY lower(partner), rowno
-            ON CONFLICT ((lower(CompanyName))) DO NOTHING
-            """);
+            INSERT INTO TradePartner (CompanyId, CompanyName, AddedByUser, DiverseTags)
+            SELECT DISTINCT ON (lower(partner)) @cid, partner, true, CASE WHEN diverse THEN ARRAY['diverse'] ELSE '{}'::text[] END FROM impbid ORDER BY lower(partner), rowno
+            ON CONFLICT (CompanyId, (lower(CompanyName))) DO NOTHING
+            """, p);
         await w.Exec("""
             INSERT INTO PartnerPerson (PartnerId, FullName, Email, Phone, IsPrimary)
             SELECT DISTINCT ON (tp.PartnerId, lower(coalesce(i.email, i.contact))) tp.PartnerId, coalesce(i.contact, i.email), i.email::citext, i.phone,
                    NOT EXISTS (SELECT 1 FROM PartnerPerson x WHERE x.PartnerId = tp.PartnerId)
-            FROM impbid i JOIN TradePartner tp ON lower(tp.CompanyName) = lower(i.partner)
+            FROM impbid i JOIN TradePartner tp ON tp.CompanyId = @cid AND lower(tp.CompanyName) = lower(i.partner)
             WHERE coalesce(i.email, i.contact) IS NOT NULL
               AND NOT EXISTS (SELECT 1 FROM PartnerPerson x WHERE x.PartnerId = tp.PartnerId AND (x.Email = i.email::citext OR (i.email IS NULL AND x.FullName = i.contact)))
             ORDER BY tp.PartnerId, lower(coalesce(i.email, i.contact)), i.rowno
-            """);
+            """, p);
         var bids = await w.Exec("""
             INSERT INTO Bid (TradeId, PartnerId, PersonId, BidderName, LaneNo, State, IsPosted, BaseAmount, BaseSource, ChangedBy)
             SELECT t.TradeId, tp.PartnerId, pp.PersonId, tp.CompanyName,
@@ -174,7 +174,7 @@ public static class ImportService
                    i.state::BidState, i.base IS NOT NULL AND i.state NOT IN ('invited','bidding','declined'), i.base, 'import', @u
             FROM impbid i
             JOIN Trade t ON t.VersionId = @vid AND t.CsiCode = i.code AND t.ScopeNo = 1 AND t.ArchivedAt IS NULL
-            JOIN TradePartner tp ON lower(tp.CompanyName) = lower(i.partner)
+            JOIN TradePartner tp ON tp.CompanyId = @cid AND lower(tp.CompanyName) = lower(i.partner)
             LEFT JOIN LATERAL (SELECT x.PersonId FROM PartnerPerson x WHERE x.PartnerId = tp.PartnerId AND (x.Email = i.email::citext OR x.FullName = i.contact) ORDER BY x.IsPrimary DESC LIMIT 1) pp ON true
             WHERE NOT EXISTS (SELECT 1 FROM Bid b WHERE b.TradeId = t.TradeId AND b.PartnerId = tp.PartnerId AND b.ArchivedAt IS NULL)
             """, p);
@@ -268,10 +268,10 @@ public static class ImportService
         foreach (var c in m.Crew)
         {
             var staff = c.Member is null or "TBA" ? default : await w.One<(long id, decimal? cost, decimal? bill)>("""
-                SELECT StaffId, HourlyCost, BillRate FROM Staff WHERE lower(FullName) = lower(@n)
-                   OR lower(left(FullName, 1) || '. ' || split_part(FullName, ' ', 2)) = lower(@n) LIMIT 1
-                """, new { n = c.Member });
-            var role = await w.One<(int id, decimal? rate)>("SELECT StaffRoleId, DefaultRate FROM StaffRole WHERE lower(RoleName) = lower(@r) LIMIT 1", new { r = c.Role });
+                SELECT StaffId, HourlyCost, BillRate FROM Staff WHERE CompanyId = @cid AND (lower(FullName) = lower(@n)
+                   OR lower(left(FullName, 1) || '. ' || split_part(FullName, ' ', 2)) = lower(@n)) LIMIT 1
+                """, new { n = c.Member, cid = w.User.CompanyId });
+            var role = await w.One<(int id, decimal? rate)>("SELECT StaffRoleId, DefaultRate FROM StaffRole WHERE CompanyId = @cid AND lower(RoleName) = lower(@r) LIMIT 1", new { r = c.Role, cid = w.User.CompanyId });
             var bill = c.Rate ?? staff.bill ?? role.rate;
             var mid = await w.Scalar<long>("""
                 INSERT INTO TeamMember (ProjectId, StaffId, StaffRoleId, RoleLabel, SortKey, HourlyCost, BillRate, Note, QuotedPct, TeamGroup)

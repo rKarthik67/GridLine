@@ -58,13 +58,13 @@ public static class ScopeExtrasEndpoints
         }).DisableAntiforgery();
 
         // ------------------------------------------------------------------ qualifications (was: clarifications)
-        api.MapGet("/qualification-sets", async (Db db) =>
+        api.MapGet("/qualification-sets", async (HttpContext ctx, Db db) =>
         {
             await using var c = await db.Open();
             return await c.QueryAsync("""
                 SELECT s.QualificationSetId AS "setId", s.SetName AS "setName", (SELECT count(*) FROM QualificationSetLine l WHERE l.QualificationSetId = s.QualificationSetId) AS "lines"
-                FROM QualificationSet s WHERE s.IsActive ORDER BY s.SetName
-                """);
+                FROM QualificationSet s WHERE s.CompanyId = @cid AND s.IsActive ORDER BY s.SetName
+                """, new { cid = ctx.Me().CompanyId });
         });
         api.MapGet("/trades/{id:long}/qualifications", async (long id, HttpContext ctx, Db db) =>
         {
@@ -124,6 +124,7 @@ public static class ScopeExtrasEndpoints
         {
             await using var w = await Work.Begin(ctx);
             var s = await Access.Trade(w, id);
+            await Access.QualificationSet(w, body.SetId);
             var start = await w.Scalar<decimal?>("SELECT max(SortKey) FROM Qualification WHERE VersionId = @v AND TradeId = @id", new { v = s.VersionId, id }) ?? 0;
             var n = await w.Exec("""
                 INSERT INTO Qualification (VersionId, TradeId, Kind, SortKey, QualText, ChangedBy)
@@ -224,6 +225,7 @@ public static class ScopeExtrasEndpoints
         {
             await using var w = await Work.Begin(ctx);
             var s = await Access.Version(w, id);
+            await Access.RequirementSet(w, body.SetId);
             var set = await OwnSet(w, id);
             var start = await w.Scalar<decimal?>("SELECT max(SortKey) FROM RequirementLine WHERE RequirementSetId = @set", new { set }) ?? 0;
             var n = await w.Exec("""
@@ -264,7 +266,10 @@ public static class ScopeExtrasEndpoints
                    (SELECT count(*) FROM ScopeLine l JOIN Trade tr ON tr.TradeId = l.TradeId AND tr.VersionId = @versionId WHERE l.RequirementLineId = r.RequirementLineId AND l.ArchivedAt IS NULL) AS "trades"
             FROM ProjectVersion v JOIN RequirementLine r ON r.RequirementSetId = v.RequirementSetId WHERE v.VersionId = @versionId ORDER BY r.SortKey, r.RequirementLineId
             """, new { versionId }, t);
-        var templates = await c.QueryAsync("""SELECT RequirementSetId AS "setId", SetName AS "setName", (SELECT count(*) FROM RequirementLine l WHERE l.RequirementSetId = s.RequirementSetId) AS "lines" FROM RequirementSet s WHERE IsTemplate ORDER BY SetName""", transaction: t);
+        var templates = await c.QueryAsync("""
+            SELECT RequirementSetId AS "setId", SetName AS "setName", (SELECT count(*) FROM RequirementLine l WHERE l.RequirementSetId = s.RequirementSetId) AS "lines"
+            FROM RequirementSet s WHERE s.IsTemplate AND s.CompanyId = (SELECT p.CompanyId FROM ProjectVersion v JOIN Project p ON p.ProjectId = v.ProjectId WHERE v.VersionId = @versionId) ORDER BY SetName
+            """, new { versionId }, t);
         return new { set, lines, templates };
     }
 
@@ -281,7 +286,10 @@ public static class ScopeExtrasEndpoints
             """, new { versionId });
         if (cur.set is long s0 && !cur.tpl && cur.users == 1) return s0;
         var pname = await w.Scalar<string>("SELECT p.ProjectName || ' v' || v.VersionNo FROM ProjectVersion v JOIN Project p ON p.ProjectId = v.ProjectId WHERE v.VersionId = @versionId", new { versionId });
-        var set = await w.Scalar<long>("INSERT INTO RequirementSet (SetName, IsTemplate) VALUES (@n, false) RETURNING RequirementSetId", new { n = $"{pname} – base requirements" });
+        var set = await w.Scalar<long>("""
+            INSERT INTO RequirementSet (CompanyId, SetName, IsTemplate)
+            SELECT p.CompanyId, @n, false FROM ProjectVersion v JOIN Project p ON p.ProjectId = v.ProjectId WHERE v.VersionId = @versionId RETURNING RequirementSetId
+            """, new { n = $"{pname} – base requirements", versionId });
         if (cur.set is long old)
         {
             await w.Exec("""
