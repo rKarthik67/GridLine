@@ -9,8 +9,9 @@ export default function Portal() {
   const { token } = useParams(); const [base, setBase] = useState(''); const [answers, setAnswers] = useState<Record<number, string>>({}); const [notes, setNotes] = useState('')
   const [done, setDone] = useState(false); const [err, setErr] = useState<string | null>(null)
   const { data, error, isLoading } = useQuery({ queryKey: ['portal', token], queryFn: () => api.get<PortalData>(`/portal/${token}`) })
-  if (isLoading) return <div className="empty" style={{ padding: 40 }}>Loading your bid form…</div>
-  if (error || !data) return <div className="empty" style={{ padding: 40 }}>This bid link is not valid or has expired.</div>
+  if (isLoading) return <div className="pub-card"><div className="brand" style={{ padding: 0, height: 'auto', justifyContent: 'center' }}><span className="mark">G</span><b style={{ color: 'var(--ink)' }}>Gridline<i>.</i></b></div><p style={{ marginTop: 12 }}>Opening your bid form…</p></div>
+  if (error || !data) return <div className="pub-card"><div className="brand" style={{ padding: 0, height: 'auto', justifyContent: 'center' }}><span className="mark">G</span><b style={{ color: 'var(--ink)' }}>Gridline<i>.</i></b></div>
+    <h2>This bid link isn't valid any more</h2><p>It may have expired, been withdrawn, or already been used to submit a bid. Ask the estimator who sent it for a new link.</p></div>
   if (done || data.status === 'submitted') return <div className="card pad" style={{ maxWidth: 560, margin: '60px auto' }}><h2>Thank you</h2><p>Your bid for {data.tradeName} on {data.projectName} has been received.</p></div>
   async function submit() {
     setErr(null)

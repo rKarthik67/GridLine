@@ -10,7 +10,7 @@ namespace Gridline.Infrastructure;
 
 /// <summary>The signed-in person for this request. Everything they can see belongs to their company.</summary>
 public sealed record CurrentUser(long UserId, string Name, string Initials, string Colour, string Email, string[] Roles, string[] Capabilities,
-                                 long CompanyId = 0, string CompanyName = "", string CompanySlug = "")
+                                 long CompanyId = 0, string CompanyName = "", string CompanySlug = "", string CompanyPlan = "", DateOnly? TrialEndsOn = null)
 {
     public bool Can(string cap) => Capabilities.Contains("*") || Capabilities.Contains(cap);
     public bool IsAdmin => Capabilities.Contains("*");
@@ -105,16 +105,16 @@ public sealed class TokenAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions
             SELECT u.UserId, u.GivenName || ' ' || u.FamilyName AS Name, u.Initials, u.Colour, u.LoginEmail::text AS Email,
                    coalesce((SELECT array_agg(r.RoleCode) FROM UserRole ur JOIN AccessRole r ON r.RoleId = ur.RoleId WHERE ur.UserId = u.UserId), ARRAY[]::text[]) AS Roles,
                    coalesce((SELECT array_agg(DISTINCT g.Capability) FROM UserRole ur JOIN RoleGrant g ON g.RoleId = ur.RoleId WHERE ur.UserId = u.UserId), ARRAY[]::text[]) AS Capabilities,
-                   u.CompanyId, co.DisplayName AS CompanyName, co.Slug AS CompanySlug
+                   u.CompanyId, co.DisplayName AS CompanyName, co.Slug AS CompanySlug, co.Plan AS CompanyPlan, co.TrialEndsOn
             FROM AppUser u JOIN Company co ON co.CompanyId = u.CompanyId {(where.Contains("t.") ? "JOIN LoginToken t ON t.UserId = u.UserId" : "")}
             WHERE u.IsActive AND co.Status = 'active' AND NOT co.IsLibrary AND {where}
             """, args, tx);
-        return row is null ? null : new CurrentUser(row.UserId, row.Name, row.Initials, row.Colour, row.Email, row.Roles, row.Capabilities, row.CompanyId, row.CompanyName, row.CompanySlug);
+        return row is null ? null : new CurrentUser(row.UserId, row.Name, row.Initials, row.Colour, row.Email, row.Roles, row.Capabilities, row.CompanyId, row.CompanyName, row.CompanySlug, row.CompanyPlan, row.TrialEndsOn);
     }
     sealed class UserRow
     {
         public long UserId { get; set; } public string Name { get; set; } = ""; public string Initials { get; set; } = ""; public string Colour { get; set; } = ""; public string Email { get; set; } = "";
-        public string[] Roles { get; set; } = []; public string[] Capabilities { get; set; } = []; public long CompanyId { get; set; } public string CompanyName { get; set; } = ""; public string CompanySlug { get; set; } = "";
+        public string[] Roles { get; set; } = []; public string[] Capabilities { get; set; } = []; public long CompanyId { get; set; } public string CompanyName { get; set; } = ""; public string CompanySlug { get; set; } = ""; public string CompanyPlan { get; set; } = ""; public DateOnly? TrialEndsOn { get; set; }
     }
 }
 

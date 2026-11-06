@@ -54,3 +54,27 @@ Gridline already models the job the way a precon team actually does it, which is
 3. Sign out and click **Create your company**. Notice the empty portfolio, the empty directory, the copied template library (Administration → Template library), and that `/p/EST-24031` is not found.
 4. Invite yourself at a second address from People & access; open the link in a private window; accept; check the role.
 5. Run `node api/tests/smoke.mjs` for the automated version of steps 3–4.
+
+## 6. Second pass: UI/UX, product owner and CIO review (same day)
+
+Screenshots of every page at desktop, 1024 px and phone width were reviewed with three hats on. What changed:
+
+**UI/UX**
+- Typeface switched from IBM Plex to **Inter** (text) and **JetBrains Mono** (numbers, codes): Inter is the standard for dense SaaS dashboards and has proper tabular figures; Plex read as a typewriter in money columns.
+- Mobile menu: a hamburger opens the sidebar as a drawer with a scrim; it closes on navigation. The crumb, page header and KPI grid compact at phone width.
+- Branded, centred states for an invalid bid link and while the portal loads; avatars are round everywhere; the employees page is stacked so posting and bill rates are no longer clipped; precon/overheads warning copy says what is wrong and why it matters.
+- Template names cleaned of double-encoded dashes (migration 011).
+
+**Product owner**
+- **Jump to anything (Ctrl+K):** a palette that finds projects, the current project's pages, My desk and Administration by typing a few letters; also opened from the search box in the top bar and from the project switcher.
+- **Mine** filter on the portfolio (projects you estimate, are a member of, or starred), remembered per browser.
+- **Getting started** on an empty portfolio: invite your team, start a project, make the library yours.
+- **Trial status** chip in the top bar for trial companies, turning amber in the last five days.
+- **Help & support** in the profile menu (mailto the configured support address) and the product version.
+
+**CIO**
+- `GET /api/config` (public): is sign-up open, support email, terms and privacy links, version. The sign-in page hides *Create your company* on invite-only installations and the sign-up form links the legal pages.
+- **Security & your data** section on the Company page: isolation, password policy, sessions, audit, transport, with SSO and 2FA marked as roadmap.
+- **Export all company data (JSON)**: people, partners, employees, every project with versions, trades, bids and roll-up, and the template library; recorded in the audit trail.
+
+Still open after this pass (ordered): SSO, 2FA, inactivity timeout, alternates/allowances/unit rates, client summary export, template line editing in the library.

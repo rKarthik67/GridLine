@@ -71,7 +71,27 @@ function Company() {
         <small className="muted">Brand colours appear on the bid portal your trade partners see and on exported PDFs.</small></section>
     </div>
     <div className="tb" style={{ border: 0, paddingLeft: 0, marginTop: 10 }}><button className="btn p" disabled={busy}><Icon name="check" />Save settings</button></div>
+    <SecurityAndData />
   </form>
+}
+/** What a CIO asks before signing: how the data is protected, and how to get it out. */
+function SecurityAndData() {
+  const { run, busy } = useAction(); const { me } = useAuth()
+  const items: [string, string, boolean][] = [
+    ['Company isolation', 'Every project, bid, partner and template belongs to your company; other companies can never read it, not even benchmarks.', true],
+    ['Passwords', 'PBKDF2-SHA256, at least 10 mixed characters. 8 wrong attempts lock an account for 15 minutes.', true],
+    ['Sessions', '12 hours, or 30 days with "keep me signed in". Revocable per person; a password change signs everything else out.', true],
+    ['Audit trail', 'Every change is recorded with who, when and on what. Administrators see the full company trail.', true],
+    ['Encryption in transit', 'HTTPS is terminated at the reverse proxy in front of Gridline; HSTS is on when enabled by the host.', true],
+    ['Single sign-on (Entra ID / Okta)', 'On the roadmap. Password sign-in stays available.', false],
+    ['Two-factor authentication', 'On the roadmap.', false],
+  ]
+  return <section style={{ marginTop: 26 }}><h3 className="sec-h">Security &amp; your data</h3>
+    <div className="sec-list">{items.map(([t, d, ok]) => <div key={t} className={ok ? '' : 'todo'}><Icon name={ok ? 'shield' : 'clock'} size="s" /><span><b>{t}</b><small>{d}</small></span></div>)}</div>
+    <div className="tb" style={{ border: 0, paddingLeft: 0, marginTop: 12, gap: 12 }}>
+      <button type="button" className="btn" disabled={busy} onClick={() => run(() => api.download('/admin/export.json', `${me?.company?.slug ?? 'company'}-export.json`), 'Company data exported')}><Icon name="down" />Export all company data (JSON)</button>
+      <span className="muted" style={{ fontSize: 12 }}>People, trade partners, employees, every project with its versions, trades, bids and roll-up, and the template library. Your data is yours; take it with you any time.</span></div>
+  </section>
 }
 const TZ = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Phoenix', 'America/Los_Angeles', 'America/Anchorage', 'Pacific/Honolulu', 'America/Toronto', 'America/Vancouver', 'Europe/London', 'Asia/Kolkata', 'Asia/Dubai', 'Australia/Sydney']
 
@@ -190,7 +210,7 @@ function Staff() {
   const patchRole = async (id: number, body: object) => { if (await run(() => api.patch(`/admin/staff-roles/${id}`, body), 'Role saved')) reload() }
   const GROUPS: [string, string][] = [['operations', 'Operations'], ['siteops', 'Site operations'], ['corporate', 'Corporate resources']]
   const rows = data.staff.filter(s => showInactive || s.isActive)
-  return <div className="grid2" style={{ gridTemplateColumns: 'minmax(0,1.6fr) minmax(0,1fr)', alignItems: 'start' }}>
+  return <div className="stack" style={{ gap: 20 }}>
     <div><div className="tb" style={{ border: 0, padding: '0 0 10px' }}><h3 className="sec-h" style={{ margin: 0 }}>Employees <small>{rows.length}</small></h3><label className="check" style={{ fontSize: 12 }}><input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} /> show inactive</label><span className="sp" /><button className="btn p sm" onClick={() => setAdd(true)}><Icon name="plus" size="s" />Add employee</button></div>
       <div className="gw auto"><table className="dg" style={{ width: '100%' }}><thead><tr><th>Name</th><th>Role</th><th>Team</th><th className="r">Posting rate</th><th className="r">Bill rate</th><th className="r">Projects</th><th /></tr></thead>
         <tbody>{rows.map(s => <tr key={s.staffId} style={s.isActive ? undefined : { opacity: .55 }}>
@@ -201,7 +221,7 @@ function Staff() {
           <td className="n"><EditCell number value={s.billRate} placeholder="$/h" onSave={v => { const n = toNum(v); if (n != null) patch(s.staffId, { billRate: n }) }} style={{ textAlign: 'right', width: 90 }} /></td>
           <td className="n">{s.projects}</td>
           <td style={{ textAlign: 'right' }}><button className="btn sm g" onClick={() => patch(s.staffId, { isActive: !s.isActive }, s.isActive ? 'Marked inactive' : 'Marked active')}>{s.isActive ? 'Deactivate' : 'Activate'}</button></td></tr>)}</tbody></table></div></div>
-    <div><div className="tb" style={{ border: 0, padding: '0 0 10px' }}><h3 className="sec-h" style={{ margin: 0 }}>Employee roles</h3><span className="sp" /><button className="btn sm" onClick={() => setAddRole(true)}><Icon name="plus" size="s" />Add role</button></div>
+    <div style={{ maxWidth: 720 }}><div className="tb" style={{ border: 0, padding: '0 0 10px' }}><h3 className="sec-h" style={{ margin: 0 }}>Employee roles</h3><span className="sp" /><button className="btn sm" onClick={() => setAddRole(true)}><Icon name="plus" size="s" />Add role</button></div>
       <div className="gw auto"><table className="dg" style={{ width: '100%' }}><thead><tr><th>Role</th><th className="r">Default rate</th><th className="r">People</th><th /></tr></thead>
         <tbody>{data.roles.map(r => <tr key={r.staffRoleId}><td><EditCell value={r.roleName} onSave={v => v.trim() && patchRole(r.staffRoleId, { roleName: v })} /></td>
           <td className="n"><EditCell number value={r.defaultRate} placeholder="$/h" onSave={v => { const n = toNum(v); if (n != null) patchRole(r.staffRoleId, { defaultRate: n }) }} style={{ textAlign: 'right', width: 90 }} /></td><td className="n">{r.people}</td>

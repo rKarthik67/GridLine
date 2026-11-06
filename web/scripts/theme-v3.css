@@ -7,7 +7,7 @@
   --good:#27624d;--good-50:#e5f2ec;--bad:#b33632;--bad-50:#fbeceb;--warn:#946211;--warn-50:#fff6e0;
   --side:#18221f;--side2:#243029;--side-t:#c1cbc4;
   --shadow:0 1px 2px #18221f0a,0 8px 24px -16px #18221f33;
-  --font:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --font:'Inter','Segoe UI',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
   --r:10px;
 }
 body{background:var(--bg)}

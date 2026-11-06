@@ -67,7 +67,7 @@ export default function Costs({ project, version, pageKey }: { project: ProjectD
         {canEdit && <button className="btn p" onClick={() => setModal({ kind: 'addExpense' })}><Icon name="plus" />Add expense</button>}
         <ExportMenu items={[[`${title} (Excel)`, `/exports/${area === 'precon' ? 'precon-services' : 'project-overheads'}.xlsx?versionId=${vid}`]]} /></>} />
     {(missingCsi > 0 || missingDesc > 0) && <div className="warnbar"><Icon name="alert" />
-      <div>{missingCsi > 0 && <><b>CSI code is not added</b> for {missingCsi} item(s). </>}{missingDesc > 0 && <><b>Description is not added</b> for {missingDesc} item(s). </>}Please add them.</div>
+      <div>{missingCsi > 0 && <><b>{missingCsi} line{missingCsi === 1 ? ' has' : 's have'} no CSI code.</b> </>}{missingDesc > 0 && <><b>{missingDesc} line{missingDesc === 1 ? ' has' : 's have'} no description.</b> </>}Lines without a CSI code can't be grouped by division on the roll-up or exported to accounting.</div>
       <button className="btn sm" onClick={() => setModal({ kind: 'missing' })}>View</button></div>}
     {summary}
     <div className="card">

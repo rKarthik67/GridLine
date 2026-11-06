@@ -48,6 +48,15 @@ public static class AuthEndpoints
 
         api.MapGet("/me", (HttpContext ctx) => MeDto(ctx.Me()));
 
+        // what the sign-in pages need before anyone is signed in: is sign-up open, where to get help, terms and privacy links
+        api.MapGet("/config", (IConfiguration cfg) => new
+        {
+            signupEnabled = cfg.GetValue("Signup:Enabled", true),
+            supportEmail = cfg["Support:Email"],
+            termsUrl = cfg["Legal:TermsUrl"], privacyUrl = cfg["Legal:PrivacyUrl"],
+            version = typeof(Program).Assembly.GetName().Version?.ToString(3),
+        }).AllowAnonymous();
+
         api.MapGet("/lookups", async (HttpContext ctx, Db db) =>
         {
             var me = ctx.Me(); var cid = me.CompanyId;
@@ -95,6 +104,6 @@ public static class AuthEndpoints
     public static object MeDto(CurrentUser me) => new
     {
         me.UserId, me.Name, me.Initials, me.Colour, me.Email, me.Roles, me.Capabilities,
-        company = new { id = me.CompanyId, name = me.CompanyName, slug = me.CompanySlug },
+        company = new { id = me.CompanyId, name = me.CompanyName, slug = me.CompanySlug, plan = me.CompanyPlan, trialEndsOn = me.TrialEndsOn },
     };
 }

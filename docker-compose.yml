@@ -36,6 +36,9 @@ services:
       Email__Smtp__User: ${SMTP_USER:-}
       Email__Smtp__Password: ${SMTP_PASSWORD:-}
       Signup__Enabled: ${SIGNUP_ENABLED:-true}
+      Support__Email: ${SUPPORT_EMAIL:-}
+      Legal__TermsUrl: ${TERMS_URL:-}
+      Legal__PrivacyUrl: ${PRIVACY_URL:-}
       Swagger__Enabled: ${SWAGGER_ENABLED:-false}
       Security__Hsts: ${HSTS:-false}          # turn on once TLS terminates in front of the app
       AzureOpenAI__Endpoint: ${AZURE_OPENAI_ENDPOINT:-}

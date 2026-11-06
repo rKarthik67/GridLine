@@ -102,7 +102,7 @@ export default function BidBoard({ project, version }: { project: ProjectDetail;
           <button key={k} aria-pressed={filter === k} onClick={() => setFilter(k)}>{l}</button>)}</div></div>
       <div className="tb sub2"><span className="stats"><b>{trades.length}</b> trades <i className="d car" /><b>{picked}</b> picked <i className="d un" /><b>{unresolved}</b> unresolved
         <span className="sep" /><span title={`Trades with ${GOOD_COVERAGE} or more posted bids (the usual minimum for a competitive number)`}><b>{covered}</b>/{trades.length} with {GOOD_COVERAGE}+ bids</span>
-        {wide > 0 && <span title={`Trades where the highest posted bid is ${WIDE_SPREAD}% or more above the lowest`} style={{ color: 'var(--bad)' }}><b>{wide}</b> wide spread</span>}</span><span className="sep" />
+        {wide > 0 && <span title={`Trades where the highest posted bid is ${WIDE_SPREAD}% or more above the lowest`} style={{ color: 'var(--warn)' }}><b>{wide}</b> wide spread</span>}</span><span className="sep" />
         <Toggle label="Budget" on={showBudget} onChange={setShowBudget} /><Toggle label="Only unresolved" on={onlyUnres} onChange={setOnlyUnres} /><Toggle label="Anticipated buyouts" on={buyout} onChange={setBuyout} />
         <span className="sp" />{showBudget && <><span className="mut" style={{ fontSize: 12 }}>Budget source</span>
           <Menu cls="sm" label={data.baselineName ?? 'Trade budgets'} items={[{ label: 'Trade budgets (as entered)', onClick: () => run(() => api.patch(`/versions/${vid}`, { baselineName: '' }).then(() => qc.invalidateQueries({ queryKey: key })), 'Budget source: trade budgets') },

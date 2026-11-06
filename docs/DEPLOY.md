@@ -24,6 +24,8 @@ Everything is an environment variable (`Section__Key`). The important ones:
 | `Email__PublicUrl` | Public address of the app, used in invitation and reset links. | request host |
 | `Email__Smtp__Host/Port/User/Password`, `Email__From` | Outgoing mail. Without a host, links are written to the log and shown on screen. | not set |
 | `Signup__Enabled` | Allow anyone to create a company. Set `false` for a single-customer installation (invite-only). | `true` |
+| `Support__Email` | Shown as *Help & support* in the app and on the sign-in page when sign-up is off. | not set |
+| `Legal__TermsUrl`, `Legal__PrivacyUrl` | Linked from the sign-up form when set. | not set |
 | `Swagger__Enabled` | Swagger UI at `/swagger` (always on in Development). | `false` |
 | `Security__Hsts` | Send `Strict-Transport-Security`. Turn on when TLS terminates in front of the app. | `true` |
 | `Security__TrustProxies` | Honour `X-Forwarded-*` from the reverse proxy. | `true` |

@@ -63,6 +63,7 @@ public static class ProjectEndpoints
                        s.PrimaryVersionNo AS "primaryVersionNo", coalesce(s.GrossArea, 0) AS "grossArea", s.Trades AS "trades", s.TradesCarried AS "tradesCarried",
                        s.TradesTotal AS "tradesTotal", s.ContractTotal AS "contractTotal",
                        (SELECT u.GivenName || ' ' || u.FamilyName FROM Project p JOIN AppUser u ON u.UserId = p.EstimatorId WHERE p.ProjectId = s.ProjectId) AS "estimator",
+                       s.EstimatorId AS "estimatorId", EXISTS (SELECT 1 FROM ProjectMember m WHERE m.ProjectId = s.ProjectId AND m.UserId = @uid) AS "isMember",
                        coalesce(r.IsFavourite, false) AS "isFavourite", r.OpenedAt AS "openedAt",
                        (SELECT count(DISTINCT w.UserId) FROM WhoIsHere w WHERE w.ProjectId = s.ProjectId) AS "peopleHere"
                 FROM ProjectSummary s LEFT JOIN RecentProject r ON r.ProjectId = s.ProjectId AND r.UserId = @uid

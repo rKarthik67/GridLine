@@ -324,6 +324,49 @@ public static class AdminEndpoints
             return Results.NoContent();
         });
 
+        // ------------------------------------------------------------------ data export (portability: everything the company owns, as JSON)
+        api.MapGet("/admin/export.json", async (HttpContext ctx, Db db) =>
+        {
+            var me = ctx.Me(); me.RequireAdmin();
+            await using var c = await db.Open();
+            var p = new { cid = me.CompanyId };
+            var export = new
+            {
+                exportedAt = DateTime.UtcNow, exportedBy = me.Email, format = "gridline-company-export/1",
+                company = await Company(c, me.CompanyId),
+                users = await c.QueryAsync("SELECT UserId AS \"userId\", GivenName AS \"givenName\", FamilyName AS \"familyName\", LoginEmail::text AS \"email\", JobTitle AS \"jobTitle\", IsActive AS \"isActive\", CreatedAt AS \"createdAt\", (SELECT r.RoleCode FROM UserRole ur JOIN AccessRole r ON r.RoleId = ur.RoleId WHERE ur.UserId = u.UserId LIMIT 1) AS \"role\" FROM AppUser u WHERE CompanyId = @cid ORDER BY UserId", p),
+                staffRoles = await c.QueryAsync("SELECT StaffRoleId AS \"staffRoleId\", RoleName AS \"roleName\", ShortName AS \"shortName\", Seniority AS \"seniority\", DefaultRate AS \"defaultRate\" FROM StaffRole WHERE CompanyId = @cid ORDER BY StaffRoleId", p),
+                staff = await c.QueryAsync("SELECT StaffId AS \"staffId\", FullName AS \"fullName\", WorkEmail::text AS \"workEmail\", StaffNo AS \"staffNo\", StaffRoleId AS \"staffRoleId\", HourlyCost AS \"hourlyCost\", BillRate AS \"billRate\", TeamGroup AS \"teamGroup\", IsActive AS \"isActive\" FROM Staff WHERE CompanyId = @cid ORDER BY StaffId", p),
+                tradePartners = await c.QueryAsync("""
+                    SELECT p.PartnerId AS "partnerId", p.CompanyName AS "companyName", p.Website AS "website", p.IsPrequalified AS "isPrequalified", p.PrequalExpires AS "prequalExpires", p.DiverseTags AS "diverseTags",
+                           (SELECT json_agg(json_build_object('name', x.FullName, 'email', x.Email, 'phone', x.Phone, 'isPrimary', x.IsPrimary)) FROM PartnerPerson x WHERE x.PartnerId = p.PartnerId) AS "contacts",
+                           (SELECT json_agg(json_build_object('city', b.City, 'state', b.StateCode, 'street', b.Street, 'postalCode', b.PostalCode)) FROM PartnerBranch b WHERE b.PartnerId = p.PartnerId) AS "offices",
+                           (SELECT array_agg(w.CsiCode ORDER BY w.CsiCode) FROM PartnerCode pc JOIN WorkCode w ON w.CodeId = pc.CodeId WHERE pc.PartnerId = p.PartnerId) AS "csiCodes"
+                    FROM TradePartner p WHERE p.CompanyId = @cid ORDER BY p.CompanyName
+                    """, p),
+                projects = await c.QueryAsync("""
+                    SELECT p.ProjectId AS "projectId", p.ProjectNo AS "projectNo", p.ProjectName AS "projectName", p.Stage::text AS "stage", p.ClientName AS "clientName", p.ProjectType AS "projectType", p.ContractType AS "contractType",
+                           p.City AS "city", p.StateCode AS "stateCode", p.BidDueOn AS "bidDueOn", p.CreatedAt AS "createdAt", p.ArchivedAt AS "archivedAt",
+                           (SELECT json_agg(json_build_object('versionNo', v.VersionNo, 'label', v.VersionLabel, 'isPrimary', v.IsPrimary, 'status', v.Status, 'grossArea', v.GrossArea, 'feePct', v.FeePct,
+                                'rollUp', (SELECT json_agg(json_build_object('line', r.LineName, 'kind', r.Kind, 'ratePct', r.RatePct, 'amount', r.Amount) ORDER BY r.SortOrder) FROM RollupLine r WHERE r.VersionId = v.VersionId),
+                                'trades', (SELECT json_agg(json_build_object('csiCode', t.CsiCode, 'tradeName', t.TradeName, 'budget', t.BudgetValue, 'lowest', t.LowestValue, 'carried', t.CarriedValue, 'plug', t.PlugAmount, 'adjustment', t.Adjustment,
+                                     'bids', (SELECT json_agg(json_build_object('bidder', b.BidderName, 'state', b.State, 'base', b.BaseAmount, 'scopeAdjustments', b.ScopeAdjustments, 'total', b.TotalAmount, 'picked', b.IsCarried) ORDER BY b.LaneNo) FROM Bid b WHERE b.TradeId = t.TradeId AND b.ArchivedAt IS NULL)) ORDER BY t.CsiCode)
+                                     FROM Trade t WHERE t.VersionId = v.VersionId AND t.ArchivedAt IS NULL)) ORDER BY v.VersionNo) FROM ProjectVersion v WHERE v.ProjectId = p.ProjectId) AS "versions"
+                    FROM Project p WHERE p.CompanyId = @cid ORDER BY p.ProjectNo
+                    """, p),
+                templates = new
+                {
+                    scopeKits = await c.QueryAsync("SELECT k.KitName AS \"name\", k.IsActive AS \"isActive\", (SELECT json_agg(json_build_object('text', l.LineText, 'isHeading', l.IsHeading, 'desired', l.Desired) ORDER BY l.SortKey) FROM ScopeKitLine l WHERE l.KitId = k.KitId) AS \"lines\" FROM ScopeKit k WHERE k.CompanyId = @cid ORDER BY k.KitName", p),
+                    requirementSets = await c.QueryAsync("SELECT s.SetName AS \"name\", (SELECT json_agg(json_build_object('section', l.SectionName, 'text', l.LineText, 'isHeading', l.IsHeading, 'desired', l.Desired) ORDER BY l.SortKey) FROM RequirementLine l WHERE l.RequirementSetId = s.RequirementSetId) AS \"lines\" FROM RequirementSet s WHERE s.CompanyId = @cid AND s.IsTemplate ORDER BY s.SetName", p),
+                    costKits = await c.QueryAsync("SELECT k.KitName AS \"name\", k.Area::text AS \"area\", k.IsDefault AS \"isDefault\", (SELECT json_agg(json_build_object('category', i.CategoryName, 'item', i.ItemName, 'qty', i.DefaultQty, 'uom', i.UomCode, 'rate', i.DefaultRate) ORDER BY i.SortOrder) FROM CostKitItem i WHERE i.CostKitId = k.CostKitId) AS \"lines\" FROM CostKit k WHERE k.CompanyId = @cid ORDER BY k.KitName", p),
+                    qualificationSets = await c.QueryAsync("SELECT s.SetName AS \"name\", (SELECT json_agg(json_build_object('kind', l.Kind, 'text', l.QualText) ORDER BY l.SortOrder) FROM QualificationSetLine l WHERE l.QualificationSetId = s.QualificationSetId) AS \"lines\" FROM QualificationSet s WHERE s.CompanyId = @cid ORDER BY s.SetName", p),
+                },
+            };
+            await Audit(c, me, "company.export", "company", me.CompanyId);
+            ctx.Response.Headers.ContentDisposition = $"attachment; filename=\"{me.CompanySlug}-export-{DateTime.UtcNow:yyyy-MM-dd}.json\"";
+            return Results.Json(export, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web) { WriteIndented = true });
+        });
+
         // ------------------------------------------------------------------ audit trail (company-wide)
         api.MapGet("/admin/audit", async (long? before, string? verb, HttpContext ctx, Db db) =>
         {

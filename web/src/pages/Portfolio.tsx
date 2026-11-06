@@ -1,6 +1,6 @@
 // Portfolio: every project, its stage and where pricing stands, with the pipeline numbers an estimating lead
 // looks at first thing: what's due, what's out the door, what we won, and what still has holes.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
@@ -19,11 +19,13 @@ const value = (p: ProjectRow) => p.contractTotal ?? p.tradesTotal ?? 0
 const short = (n: number) => n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${Math.round(n / 1e3)}K` : money(n)
 
 export default function Portfolio({ startNew }: { startNew?: boolean }) {
-  const nav = useNavigate(); const toast = useToast(); const { me } = useAuth()
-  const [stage, setStage] = useState<Stage | 'all'>('all'); const [q, setQ] = useState('')
+  const nav = useNavigate(); const toast = useToast(); const { me, isAdmin } = useAuth()
+  const [stage, setStage] = useState<Stage | 'all'>('all'); const [q, setQ] = useState(''); const [mine, setMine] = useState(() => { try { return localStorage.getItem('gridline.portfolio.mine') === '1' } catch { return false } })
+  useEffect(() => { try { localStorage.setItem('gridline.portfolio.mine', mine ? '1' : '0') } catch { /* private mode */ } }, [mine])
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ['projects'], queryFn: () => api.get<ProjectRow[]>('/projects') })
-  const rows = useMemo(() => (data ?? []).filter(p => (stage === 'all' || p.stage === stage) &&
-    (!q || `${p.projectName} ${p.projectNo} ${p.city ?? ''} ${p.clientName ?? ''}`.toLowerCase().includes(q.toLowerCase()))), [data, stage, q])
+  const isMine = (p: ProjectRow) => p.estimatorId === me?.userId || p.isMember || p.isFavourite
+  const rows = useMemo(() => (data ?? []).filter(p => (stage === 'all' || p.stage === stage) && (!mine || isMine(p)) &&
+    (!q || `${p.projectName} ${p.projectNo} ${p.city ?? ''} ${p.clientName ?? ''}`.toLowerCase().includes(q.toLowerCase()))), [data, stage, q, mine, me?.userId])  // eslint-disable-line react-hooks/exhaustive-deps
   const open = (p: ProjectRow, newTab = false) => { const url = `/p/${encodeURIComponent(p.projectNo)}/v/${p.primaryVersionNo ?? 1}/bid-board`; newTab ? window.open(url, '_blank') : nav(url) }
   async function fav(p: ProjectRow) { await api.put(`/projects/${p.projectId}/favourite`, { isFavourite: !p.isFavourite }); refetch() }
   async function exportList() { try { toast('Exported ' + await api.download('/exports/portfolio.xlsx', 'Portfolio.xlsx'), 'down') } catch (e) { toast((e as Error).message, 'alert') } }
@@ -55,9 +57,15 @@ export default function Portfolio({ startNew }: { startNew?: boolean }) {
       <div className="card">
         <div className="tabs" role="tablist">{STAGES.map(s => <button key={s} role="tab" aria-selected={stage === s} onClick={() => setStage(s)}>{s === 'all' ? 'All' : cap(s)}<span className="n">{s === 'all' ? data?.length ?? 0 : data?.filter(p => p.stage === s).length ?? 0}</span></button>)}</div>
         <div className="tb"><label className="sbox"><Icon name="search" size="s" /><input placeholder="Search name, number, client or city" value={q} onChange={e => setQ(e.target.value)} style={{ width: 300 }} /></label>
+          <div className="seg"><button aria-pressed={!mine} onClick={() => setMine(false)}>All projects</button><button aria-pressed={mine} onClick={() => setMine(true)} title="Projects you estimate, are a member of, or starred">Mine</button></div>
           <span className="sp" /><span className="muted" style={{ fontSize: 12 }}>{rows.length} of {all.length} · {short(rows.reduce((s, p) => s + value(p), 0))}</span></div>
         {isLoading ? <div className="empty">Loading projects…</div> : error ? <div className="empty">Couldn't load projects: {(error as Error).message}</div> :
-        !all.length ? <div className="empty"><Icon name="build" size="l" /><h3>No projects yet</h3><p>Start one from scratch or import the Excel template with your trades and bidders.</p><button className="btn p" onClick={() => nav('/projects/new')}><Icon name="plus" />Start a project</button></div> :
+        !all.length ? <div className="empty"><Icon name="build" size="l" /><h3>Welcome to Gridline{me?.company?.name ? `, ${me.company.name}` : ''}</h3><p>Three steps and your first bid board is live.</p>
+          <div className="gs">
+            <div className="gs-step"><i>1</i><b>Invite your team</b><p>Estimators, precon managers and viewers get an email link and choose a password.</p>{isAdmin ? <button className="btn sm" onClick={() => nav('/admin/people')}><Icon name="send" size="s" />Invite people</button> : <small className="muted">Ask an administrator.</small>}</div>
+            <div className="gs-step"><i>2</i><b>Start a project</b><p>Import the Excel template with trades, bidders, zones and crew, or start blank and add trades one by one.</p><button className="btn sm p" onClick={() => nav('/projects/new')}><Icon name="plus" size="s" />Start a project</button></div>
+            <div className="gs-step"><i>3</i><b>Make it yours</b><p>Your starter library (scope kits, checklists, cost kits) and trade partner directory are ready to edit.</p>{isAdmin ? <button className="btn sm" onClick={() => nav('/admin/templates')}><Icon name="book" size="s" />Open the library</button> : <small className="muted">Ask an administrator.</small>}</div>
+          </div></div> :
         <div className="gw"><table className="dg" style={{ width: '100%' }}>
           <thead><tr><th style={{ width: 34 }}></th><th>Project</th><th>Stage</th><th>Client</th><th>Bid due</th><th className="r">Trades picked</th><th className="r">Contract total</th><th className="r">$/SF</th><th>Estimator</th><th style={{ width: 70 }}></th></tr></thead>
           <tbody>{rows.map(p => { const d = daysUntil(p.bidDueOn); const v = value(p)
