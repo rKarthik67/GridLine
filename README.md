@@ -54,6 +54,8 @@ app md/                  One write-up per page
 
 ## Getting started (Windows)
 
+Setting up on a new laptop? Follow **[SETUP.md](SETUP.md)** for the full step-by-step guide (installs, restoring the team database backup, troubleshooting).
+
 You need:
 
 - [.NET SDK 10](https://dotnet.microsoft.com/download). `api/global.json` selects it.
