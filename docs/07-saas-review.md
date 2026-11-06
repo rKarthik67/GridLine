@@ -25,7 +25,7 @@ Gridline already models the job the way a precon team actually does it, which is
 | **No administration surface.** Users, roles, the 700-row trade partner directory, employees and templates could only be changed in SQL. | Every customer needs a self-service admin. | ✅ Administration area: company & brand, people & access, trade partners, employees & roles, template library, audit trail. |
 | **No repeatable deployment.** Migrations were applied by hand with `psql`; secrets lived in a committed private file; no container. | Can't onboard a second customer or a second environment reliably. | ✅ Migration runner (`--migrate`, `Db:AutoMigrate`), Dockerfile, compose, `.env.example`, CI workflow, `docs/DEPLOY.md`. |
 | **Email.** Bid links were `mailto:`; no transport for invitations or resets. | | ✅ SMTP sender with log fallback; every flow also shows the link on screen. |
-| **Brand.** Orchid/tangerine prototype palette. | The product should look like the Precon-E family. | ✅ Forest green `#27624d`, lime `#d8ef58`, ink `#18221f`, IBM Plex; dark sidebar; new sign-in. |
+| **Brand.** Orchid/tangerine prototype palette. | The product should look like the Precon-E family. | ✅ Forest green `#27624d`, lime `#d8ef58`, ink `#18221f`; dark sidebar; new sign-in. Typeface was IBM Plex in the first pass and is Inter + JetBrains Mono since the second (section 6). |
 
 ## 3. Estimating refinements made
 
@@ -78,3 +78,67 @@ Screenshots of every page at desktop, 1024 px and phone width were reviewed with
 - **Export all company data (JSON)**: people, partners, employees, every project with versions, trades, bids and roll-up, and the template library; recorded in the audit trail.
 
 Still open after this pass (ordered): SSO, 2FA, inactivity timeout, alternates/allowances/unit rates, client summary export, template line editing in the library.
+
+## 7. Complete change log (branch `saas-refine`, 62 files)
+
+Everything that differs from `main`, grouped by area. Nothing was pushed to the remote.
+
+### Database (`db/migrations`)
+| File | What it does |
+|---|---|
+| `009_companies.sql` | `Company` table (slug, names, time zone, brand colours, project numbering, plan, status, trial end). `CompanyId` added, backfilled to company 1, made NOT NULL and indexed on AppUser, Project, TradePartner, Staff, StaffRole, Division, Branch, ScopeKit, RequirementSet, CostKit, QualificationSet, Activity. Per-company uniqueness replaces global uniqueness on project numbers, partner names, staff numbers/emails, role names, division codes, branch names, qualification set names. `UserInvite`, `PasswordReset` tables; `FailedLogins`, `LockedUntil`, `PasswordChangedAt`, `EmailVerifiedAt`, `JobTitle` on AppUser; `LastUsedAt`, `UserAgent` on LoginToken. Views `ProjectSummary` (adds CompanyId, EstimatorId, dates) and `TradeBenchmark` (per company). Function `CopyCompanyLibrary(src, dst)` and the "Gridline starter library" company (slug `library`) filled from company 1. Idempotent. |
+| `010_data_cleanup.sql` | `FixMojibake()` and clean-up of Latin-1 double-encoded text ("Â·") in versions, budgets, trades, scope lines, answers, cost lines, qualifications, partners, projects. |
+| `011_template_text_cleanup.sql` | Broader `FixMojibake()` (cp1252 "â€“", "â€™" …) run over 34 text columns in template, project and directory tables. |
+
+### API (`api/src/Gridline.Api`)
+| File | What changed |
+|---|---|
+| `Infrastructure/Auth.cs` | `CurrentUser` carries CompanyId, company name, slug, plan and trial end; `CurrentUser.System` for start-up work; `Passwords.Weakness()` policy (10+ chars, mixed); `Sessions` stamp so revoked sessions stop at once despite the 30 s cache; token `LastUsedAt`; users of suspended or library companies cannot sign in. |
+| `Infrastructure/Access.cs` | Every project/version/trade/bid/line/cost/indirect/precon-member lookup appends `AND p.CompanyId = @cid` (404 outside the company); new owned-row checks `ScopeKit`, `CostKit`, `RequirementSet`, `QualificationSet`, `Staff`, `StaffRole`, `Partner`, `User`. |
+| `Infrastructure/Email.cs` (new) | `IEmailSender`: SMTP from `Email:Smtp:*` or log-only fallback; `PublicUrl.Of()` for links. |
+| `Infrastructure/Migrator.cs` (new) | Applies `db/migrations/NNN_*.sql` above the current `SchemaChange` number, one transaction each, under an advisory lock; folder from `Db:MigrationsPath` or discovered. |
+| `Infrastructure/Security.cs` (new) | Forwarded headers, rate limiter policies (`auth` 10/min, `public` 60/min per address), HSTS, CSP and the other security headers. |
+| `Infrastructure/Versions.cs` | Default precon tasks filtered by the version's company. |
+| `Program.cs` | Private settings file loaded before the connection string is read; `--migrate` / `--migrate-only` / `Db:AutoMigrate`; security middleware and response compression; cache headers for built assets; `/api/health/live`; health hides the database name in Production and reports the version; dev-password seeding only in Development; start-up recalculation runs as `CurrentUser.System`; new endpoint groups registered. |
+| `Endpoints/AuthEndpoints.cs` | Login: lockout after 8 failures (15 min), remember-me (30 days), user agent stored, rate-limited; `/me` returns the company; `GET /config` (public: sign-up switch, support email, legal links, version); lookups, partners and users filtered by company. |
+| `Endpoints/AccountEndpoints.cs` (new) | `POST /auth/signup` (creates company + admin, clones the library), `GET /auth/invite/{token}`, `POST /auth/invite/accept`, `POST /auth/forgot`, `POST /auth/reset`, `POST /auth/change-password`, `GET /auth/sessions`, `POST /auth/sessions/revoke-others`. |
+| `Endpoints/AdminEndpoints.cs` (new) | `/admin/company` (get/patch), `/admin/users` (list, invite, cancel invite, patch role/active), `/admin/partners` (search/page, create, patch, delete), `/admin/staff` and `/admin/staff-roles` (CRUD), `/admin/templates` (list, lines, patch), `/admin/export.json` (whole-company JSON export), `/admin/audit`. Every admin write is audited. |
+| `Endpoints/ProjectEndpoints.cs` | Portfolio and project-by-number scoped to the company; rows carry `estimatorId` and `isMember`; members must be company users; `CreateProject` numbers from `Company`, sets CompanyId, validates estimator/manager/division/branch ownership, picks the company's requirement template; default cost kits per company. |
+| `Endpoints/TradeEndpoints.cs` | Benchmarks only from the same company; `/benchmarks` filtered; `AddBid` looks up and creates partners inside the trade's company (`CompanyOfTrade`). |
+| `Endpoints/ScopeEndpoints.cs`, `ScopeExtrasEndpoints.cs` | Kit, qualification-set and requirement-template usage checked for ownership; templates and sets listed per company; copy-on-write requirement sets get the company. |
+| `Endpoints/TeamEndpoints.cs`, `PreconEndpoints.cs` | Staff and role lookups per company; precon tasks per company; ad-hoc tasks created with the company. |
+| `Endpoints/PortalEndpoints.cs` | Portal shows the inviting company's name from `Company`. |
+| `Endpoints/ImportEndpoints.cs`, `Import/ImportService.cs` | Project-number, user, kit, partner, division, staff and role matching per company; partner conflict target is `(CompanyId, lower(CompanyName))`. |
+| `Export/ExportEndpoints.cs` | Portfolio export filtered by company. |
+| `Docs/Swagger.cs` | Sign-in bar rebranded; default email updated. |
+| `api/tests/smoke.mjs` (new) | 45-check end-to-end test: health, demo sign-in, sign-up, isolation (projects, versions, roll-up, partners, benchmarks, lookups), first project and bidder, invitations, roles, company settings, employees, audit, templates, forgot/reset, lockout or rate limit, change password. |
+
+### Web (`web`)
+| File | What changed |
+|---|---|
+| `index.html` | Inter + JetBrains Mono, favicon, theme colour, description. `public/brand-icon.svg` (new). |
+| `src/styles/app.css` | Palette remapped to forest/lime/ink (script `scripts/retheme.py`, block `scripts/theme-v3.css`); dark sidebar; new rules for auth pages, dashboard, admin, coverage badges, mobile menu, jump palette, trial chip, getting started, public pages, security summary. |
+| `src/App.tsx` | Routes: `/signup`, `/forgot`, `/reset/:token`, `/invite/:token`, `/account`, `/admin/:section?` (admin-only guard). |
+| `src/app/auth.tsx` | `signIn(email, password, rememberMe)`, `setSession()`, `refresh()`, `isAdmin`; sign-in in one tab signs the others in. |
+| `src/app/config.ts` (new) | `useConfig()` for `/api/config`. `src/app/csi.ts` (new): MasterFormat division names. |
+| `src/api/types.ts` | `Me.company` (id, name, slug, plan, trialEndsOn); `ProjectRow.estimatorId`, `isMember`. |
+| `src/components/Shell.tsx` | Company under the wordmark; Administration nav for admins; sidebar collapse remembered; mobile drawer; Ctrl+K jump palette; trial chip; profile menu with Account, Company administration, Help & support, version. |
+| `src/pages/auth/*` (new) | `AuthShell` two-panel layout; `SignIn` (remember me, forgot, honours sign-up switch), `SignUp` (legal links, invite-only state), `Forgot`, `Reset`, `Invite`. Old `src/pages/SignIn.tsx` removed. |
+| `src/pages/Account.tsx` (new) | Profile, change password, sessions, sign out everywhere else. |
+| `src/pages/admin/Admin.tsx` (new) | Company (settings, brand, security & data, export), People & access (invite modal, roles, deactivate, pending invitations), Trade partners (search, paging, drawer editor), Employees & roles, Template library (lists, lines viewer), Audit trail. |
+| `src/pages/Portfolio.tsx` | Dashboard KPIs, bids-due-soon strip, Mine filter, $/SF column, getting-started empty state. |
+| `src/pages/Portal.tsx` | Inviting company and CSI code in the header; branded loading and invalid-link states. |
+| `src/pages/project/BidBoard.tsx` | `spreadOf()`, thin-coverage and spread badges, "Under 3 bids" and "Wide spread" filters, coverage stats. |
+| `src/pages/project/PriceRollUp.tsx` | "By CSI division" grouping with subtotals. |
+| `src/pages/project/Costs.tsx` | Warning copy for missing CSI codes and descriptions. |
+| `src/pages/project/CrewPlan.tsx`, `ScopeMatch.tsx`, `components/ui.tsx`, `api/debug.ts` | Hard-coded purple hex values remapped to the green palette (no behaviour change). |
+
+### Packaging and documentation
+| File | What it is |
+|---|---|
+| `Dockerfile`, `.dockerignore` | One image: web build → API publish → runtime with fontconfig; migrations applied on start; uploads in `/data`; health check. Not built locally (Docker is not installed on this laptop). |
+| `docker-compose.yml`, `.env.example` | PostgreSQL 17 + app; all settings as environment variables (SMTP, public URL, support, legal, sign-up switch, Swagger, HSTS, Azure OpenAI). |
+| `.github/workflows/ci.yml` | API tests + smoke test against a fresh database, web tests + build, image build. |
+| `docs/DEPLOY.md` | Hosting guide: quick start, configuration table, reverse proxy, security layer, backups, upgrades, scaling notes. |
+| `README.md`, `SETUP.md` | Rewritten / extended for companies, sign-up, migration runner, tests, hosting. |
+| `docs/07-saas-review.md` | This document. |
