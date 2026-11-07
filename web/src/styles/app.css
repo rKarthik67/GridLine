@@ -1095,3 +1095,19 @@ table.resbase{border-collapse:collapse;width:100%;margin-top:6px;font-size:12.5p
 .sec-list div svg{color:var(--good);flex:none;margin-top:1px}
 .sec-list div.todo svg{color:var(--faint)}
 .sec-list b{display:block;font-size:12.5px}.sec-list small{color:var(--muted)}
+
+/* Alternates & VE, allowances, unit prices: list with an expandable panel (form left, numbers right) */
+.dg.altlist tbody tr.open>td{background:var(--primary-50)}
+.dg.altlist tr.xrow>td{padding:0;background:var(--soft);white-space:normal}
+.xpanel{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr);gap:16px;padding:14px 16px}
+.xpanel .xform{display:grid;gap:10px;align-content:start;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px}
+.xpanel .xform .field{display:flex;flex-direction:column;gap:4px}
+.xpanel .xdetail{min-width:0;overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.xpanel .dg tr.off td{color:var(--faint)}
+.xpanel .dg tr.tot td{border-top:2px solid var(--ink2)}
+.bulkbar{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;padding:3px 8px;border-radius:8px;background:var(--primary-50)}
+.bulkbar b{font-size:12px;margin-right:4px}
+.applyrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.applyrow .inp{height:30px}
+.dg tr.grp2>td{background:var(--soft);font-weight:700}
+@media (max-width:900px){.xpanel{grid-template-columns:1fr}}

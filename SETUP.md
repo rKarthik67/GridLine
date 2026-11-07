@@ -69,7 +69,7 @@ Get-ChildItem db\migrations\*.sql | Sort-Object Name | ForEach-Object {
 }
 psql -h localhost -U postgres -d gridline2 -c "select max(ChangeNo) from gridline.SchemaChange"
 ```
-The last command should print **10**. Migration `002_seed.sql` adds 8 demo projects and the demo users.
+The last command should print **13**. Migration `002_seed.sql` adds 8 demo projects and the demo users.
 
 > `psql` asks for the password on each command. To avoid that for this window only: `$env:PGPASSWORD = Read-Host 'postgres password'`. Close the window afterwards.
 
@@ -132,7 +132,7 @@ These are local test accounts only.
 ## 8. Check that everything works
 
 - [ ] Portfolio lists the projects (Riverside Medical Pavilion, Harborview Mixed-Use Tower if you restored the backup, …).
-- [ ] Open a project. Bid board, Scope match, Crew plan, Precon services, Project overheads and Price roll-up all load.
+- [ ] Open a project. Bid board, Scope match, Crew plan, Precon services, Project overheads, Price roll-up, Alternates & VE, Allowances and Unit prices all load.
 - [ ] Type a value in Scope match, refresh the page, and the value is still there (it saved to PostgreSQL).
 - [ ] Open the same project in a second browser (or an incognito window) signed in as another user. A change in one appears in the other within a couple of seconds.
 - [ ] Optional: tests pass. Run `dotnet test` in `api\` and `npm test` in `web\`.
@@ -153,7 +153,7 @@ These are local test accounts only.
 ## Since the hosted-product refinement (November 2026)
 
 - **Companies.** The database now has a `Company` table and every user, project, trade partner, employee and template belongs to one. The restored backup becomes company *Northshore Builders*; a second company *Gridline starter library* holds the templates new companies are cloned from.
-- **Migrations run themselves.** New files in `db\migrations` are applied when the API starts with `Db:AutoMigrate=true`, or on demand: `dotnet run --project src\Gridline.Api\Gridline.Api.csproj -- --migrate` (from `api\`). `/api/health` shows the schema number (**10** now).
+- **Migrations run themselves.** New files in `db\migrations` are applied when the API starts with `Db:AutoMigrate=true`, or on demand: `dotnet run --project src\Gridline.Api\Gridline.Api.csproj -- --migrate` (from `api\`). `/api/health` shows the schema number (**13** now).
 - **Sign-up and invitations.** On the sign-in page, *Create your company* makes a new company with you as administrator. Administrators invite people under *Administration → People & access*; without an SMTP server configured the invitation link is shown on screen and written to the API log.
 - **Forgot password.** `/forgot` emails a reset link (or shows it, in Development, when no SMTP is configured).
 - **Lockout.** Eight wrong passwords lock an account for 15 minutes; sign-in routes allow 10 attempts a minute per address.
@@ -192,7 +192,7 @@ See `db backup\README.md` for restoring on another machine.
 | `password authentication failed for user "postgres"` | The password in `appsettings.Development.private.json` (or what you typed) doesn't match the one set when installing PostgreSQL. |
 | API says "Create …private.json first" | Do step 4. |
 | `A compatible .NET SDK was not found` | Install the .NET **10** SDK (not only the runtime), then open a new window. |
-| `/api/health` shows a schema lower than 10 | Run the missing migrations from `db\migrations` in order (Option B loop, skipping `CREATE DATABASE`). |
+| `/api/health` shows a schema lower than 13 | Run the missing migrations from `db\migrations` in order (Option B loop, skipping `CREATE DATABASE`). |
 | Restore script: "Database 'gridline2' already exists" | Restore under another name (`-Database gridline2_copy`) and change `Database=` in the private settings, or drop the old database first. |
 | Port 5080 or 5173 already in use | Close the other app, or find it with `netstat -ano | findstr :5080` and end that process in Task Manager. |
 | Web app loads but shows "Can't reach the database right now" | PostgreSQL isn't running. Start the `postgresql-x64-17` service. |
@@ -207,7 +207,7 @@ See `db backup\README.md` for restoring on another machine.
 |---|---|
 | `api\` | .NET 10 API (`src\Gridline.Api`) and tests (`tests\`) |
 | `web\` | React 19 web app and the shared calculation package (`packages\calc`) |
-| `db\migrations\` | Database scripts 001–008, run in order |
+| `db\migrations\` | Database scripts 001–013, run in order |
 | `db\seed\` | `Harborview-Tower-Import.xlsx` large test project (import from **Start a project → Import from Excel template**) |
 | `db backup\` | Database backups and the backup / restore scripts |
 | `app md\` | One write-up per page and feature |

@@ -66,6 +66,24 @@ public static class Versions
             SELECT mpm.new, @to, p.StaffId, p.StaffRoleId, p.RoleLabel, p.TeamGroup, p.SortKey, p.PostingRate, p.QuotedRate FROM PreconMember p JOIN mpm ON mpm.old = p.PreconMemberId;
             INSERT INTO PreconMemberTask (PreconMemberId, ActivityId, Hours) SELECT mpm.new, t.ActivityId, t.Hours FROM PreconMemberTask t JOIN mpm ON mpm.old = t.PreconMemberId;
 
+            -- alternates & VE, allowances and unit prices travel with the version
+            CREATE TEMP TABLE mpo ON COMMIT DROP AS SELECT OptionId AS old, nextval(pg_get_serial_sequence('gridline.priceoption','optionid')) AS new FROM PriceOption WHERE VersionId = @from;
+            INSERT INTO PriceOption (OptionId, VersionId, Kind, OptionNo, OptionIndex, Description, Status, SortKey, QuotedPct, Comments, IncludeCodes, ChangedBy) OVERRIDING SYSTEM VALUE
+            SELECT mpo.new, @to, o.Kind, o.OptionNo, o.OptionIndex, o.Description, o.Status, o.SortKey, o.QuotedPct, o.Comments, o.IncludeCodes, @u FROM PriceOption o JOIN mpo ON mpo.old = o.OptionId;
+            INSERT INTO PriceOptionTrade (OptionId, TradeId, CarriedAmount, Note)
+            SELECT mpo.new, mt.new, x.CarriedAmount, x.Note FROM PriceOptionTrade x JOIN mpo ON mpo.old = x.OptionId JOIN mt ON mt.old = x.TradeId;
+            CREATE TEMP TABLE mps ON COMMIT DROP AS SELECT SumId AS old, nextval(pg_get_serial_sequence('gridline.provisionalsum','sumid')) AS new FROM ProvisionalSum WHERE VersionId = @from;
+            INSERT INTO ProvisionalSum (SumId, VersionId, TradeId, Kind, Description, Amount, SortKey, SumIndex, ChangedBy) OVERRIDING SYSTEM VALUE
+            SELECT mps.new, @to, mt.new, p.Kind, p.Description, p.Amount, p.SortKey, p.SumIndex, @u FROM ProvisionalSum p JOIN mps ON mps.old = p.SumId LEFT JOIN mt ON mt.old = p.TradeId;
+            INSERT INTO ProvisionalSumTrade (SumId, TradeId, Included)
+            SELECT mps.new, mt.new, x.Included FROM ProvisionalSumTrade x JOIN mps ON mps.old = x.SumId JOIN mt ON mt.old = x.TradeId;
+            UPDATE ScopeLine n SET SumId = mps.new FROM ml JOIN ScopeLine o ON o.LineId = ml.old JOIN mps ON mps.old = o.SumId WHERE n.LineId = ml.new;
+            CREATE TEMP TABLE mur ON COMMIT DROP AS SELECT UnitRateId AS old, nextval(pg_get_serial_sequence('gridline.unitrate','unitrateid')) AS new FROM UnitRate WHERE VersionId = @from;
+            INSERT INTO UnitRate (UnitRateId, VersionId, UnitIndex, Description, Unit, QuotedPct, Comments, IncludeCodes, ChangedBy) OVERRIDING SYSTEM VALUE
+            SELECT mur.new, @to, r.UnitIndex, r.Description, r.Unit, r.QuotedPct, r.Comments, r.IncludeCodes, @u FROM UnitRate r JOIN mur ON mur.old = r.UnitRateId;
+            INSERT INTO UnitRateTrade (UnitRateId, TradeId, Price, Note, IsSelected)
+            SELECT mur.new, mt.new, x.Price, x.Note, x.IsSelected FROM UnitRateTrade x JOIN mur ON mur.old = x.UnitRateId JOIN mt ON mt.old = x.TradeId;
+
             UPDATE ProjectVersion d SET GrossArea = s.GrossArea, ZonesSetArea = s.ZonesSetArea, PrimaryAreaUnit = s.PrimaryAreaUnit, PrimaryUnitLabel = s.PrimaryUnitLabel, TotalUnits = s.TotalUnits, ApplyFeeExcludes = s.ApplyFeeExcludes, FeeExcludes = s.FeeExcludes, ExcludeGenreqFromDirect = s.ExcludeGenreqFromDirect, ReservePrecon = s.ReservePrecon, ReserveGenconds = s.ReserveGenconds, PreconQuotedPct = s.PreconQuotedPct, GenreqQuotedPct = s.GenreqQuotedPct, BuildMonths = s.BuildMonths, FeePct = s.FeePct, EditionId = s.EditionId,
                    RequirementSetId = s.RequirementSetId, BaselineName = CASE WHEN d.ProjectId = s.ProjectId THEN s.BaselineName ELSE NULL END
             FROM ProjectVersion s WHERE s.VersionId = @from AND d.VersionId = @to;
@@ -108,6 +126,7 @@ public static class ScopeSetup
             INSERT INTO ScopeLine (TradeId, Section, ZoneId, SortKey, LineText, ChangedBy)
             SELECT t.TradeId, 'zone', z.ZoneId, z.SortOrder, z.ZoneName, @u FROM Trade t JOIN Zone z ON z.VersionId = t.VersionId WHERE t.TradeId = @tradeId;
             """, new { tradeId, u = w.User.UserId });
+        await Gridline.Calc.PricingExtras.AddAllowanceLines(w, tradeId);
     }
 
     public static Task AddZoneLineToTrades(Work w, long versionId, long zoneId) => w.Exec("""

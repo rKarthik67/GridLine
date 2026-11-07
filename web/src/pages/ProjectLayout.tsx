@@ -21,6 +21,9 @@ const PAGES: Record<string, React.LazyExoticComponent<React.ComponentType<{ proj
   'crew-plan': lazy(() => import('./project/CrewPlan')),
   'precon-services': lazy(() => import('./project/Costs')),
   overheads: lazy(() => import('./project/Costs')),
+  alternates: lazy(() => import('./project/Alternates')),
+  allowances: lazy(() => import('./project/Allowances')),
+  'unit-prices': lazy(() => import('./project/UnitPrices')),
 }
 export default function ProjectLayout() {
   const { projectNo = '', versionNo, page } = useParams(); const qc = useQueryClient(); const toast = useToast()

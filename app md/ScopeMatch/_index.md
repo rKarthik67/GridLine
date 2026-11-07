@@ -11,3 +11,4 @@
 - `09-qualifications-tab/` — Managing per-trade or project-wide assumptions/exclusions/qualifications, including client-visibility flags and reusable qualification sets.
 - `10-bid-inbox-online-invites-and-submissions/` — Reviewing bid-portal invite status, resending/withdrawing links, and accepting or rejecting a subcontractor's online submission into the bid lane.
 - `11-bid-inbox-proposal-reader/` — Uploading a subcontractor's proposal PDF, reviewing the background reader's suggested base amount/line answers with quoted evidence, and applying chosen suggestions to the bid lane.
+- `12-trade-alternates-and-unit-prices-tabs/` — Trade tabs for pricing alternates & VE and unit prices; allowance lines tagged and locked in the Scope items grid.

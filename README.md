@@ -32,6 +32,9 @@ Repository: <https://github.com/rKarthik67/GridLine> (private)
 | Scope match | Trade partners as lanes; Included / Excluded / amount / text per line; paste from Excel; scratch pad, internal estimate, files, qualifications, bid inbox with the AI proposal reader and the online bid portal |
 | Base requirements | The checklist every trade answers; changes apply to all trades |
 | Price roll-up | Trades (also **by CSI division**), overheads, precon, general conditions, reserves, markups, fee, indirect items and tax, plus the Estimator sandbox |
+| Alternates & VE | Add-on alternates and value-engineering savings: each trade prices them on Scope match, quoted %, status (Proposed / Approved / Rejected), indirects on/off, total quoted. Not part of the contract total |
+| Allowances | Owner prescribed (a line in every trade) or miscellaneous (one trade); budget amount → all bidders of a trade; include / exclude per trade; counts in the bids |
+| Unit prices | Price per unit from every trade, pick one, quoted %, indirects on/off, quoted price. Not part of the contract total |
 | Bid portal | A link trade partners open without signing in to submit a bid |
 | Administration | Company settings and brand, people & access (invitations, roles, deactivation), trade partner directory, employees & roles, template library, audit trail |
 | Account | Password change, where you're signed in, sign out everywhere else |
@@ -43,7 +46,7 @@ Across the app: live editing and presence per project version, clash detection o
 ```
 api/                     .NET 10 API (src/Gridline.Api), xUnit tests and the end-to-end smoke test (tests/)
 web/                     React app (src/) and the shared calculation package (packages/calc)
-db/migrations/           001–010, applied in order (the API does this on start-up with Db:AutoMigrate)
+db/migrations/           001–013, applied in order (the API does this on start-up with Db:AutoMigrate)
 db backup/               pg_dump of the demo database and the backup/restore scripts
 db/seed/                 Harborview-Tower-Import.xlsx (246 trades, 10–14 bidders each)
 docs/                    DEPLOY.md (hosting), 07-saas-review.md (product review and roadmap), 06-build-plan.md
@@ -91,9 +94,10 @@ Everything about running it as a product (configuration, reverse proxy and TLS, 
 
 | Area | Status |
 |---|---|
-| Database, migrations 001–010 | ✅ |
+| Database, migrations 001–013 | ✅ |
+| Alternates & VE, allowances, unit prices (same calculations as the original app) | ✅ |
 | Companies, sign-up, invitations, password reset, lockout, rate limiting, security headers | ✅ |
 | Company administration (people, partners, employees, templates, audit) | ✅ |
 | API tests (23), calculation tests (18), end-to-end smoke (45 checks) | ✅ |
 | Docker image, compose, CI | ✅ |
-| Roadmap | See [docs/07-saas-review.md](docs/07-saas-review.md): alternates & allowances UI, unit rates, risk register, client summary, SSO (Entra/Okta), billing, SignalR backplane for multi-replica hosting |
+| Roadmap | See [docs/07-saas-review.md](docs/07-saas-review.md): risk register, client summary, SSO (Entra/Okta), billing, SignalR backplane for multi-replica hosting |

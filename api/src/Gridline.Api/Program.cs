@@ -99,6 +99,7 @@ ImportEndpoints.Map(api.MapGroup("").WithTags("Excel import"));
 ExportEndpoints.Map(api.MapGroup("").WithTags("Exports"));
 PortalEndpoints.Map(api.MapGroup("").WithTags("Bid portal"));
 DocumentEndpoints.Map(api.MapGroup("").WithTags("Documents and bid inbox (proposal reader)"));
+PricingExtrasEndpoints.Map(api.MapGroup("").WithTags("Alternates & VE, allowances, unit prices"));
 api.MapFallback(() => Results.Problem(statusCode: 404, title: "No such API endpoint.")).AllowAnonymous();
 app.MapHub<ProjectHub>("/hubs/project");
 if (swagger) Swagger.Map(app);

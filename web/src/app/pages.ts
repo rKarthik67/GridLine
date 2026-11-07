@@ -14,5 +14,10 @@ export const PROJECT_PAGES = [
   { key: 'scope-match', label: 'Scope match', icon: 'list', was: 'Scope leveling', group: 'pricing' },
   { key: 'base-requirements', label: 'Base requirements', icon: 'check', was: 'General scope', group: 'pricing' },
   { key: 'price-roll-up', label: 'Price roll-up', icon: 'chart', was: 'Executive summary', group: 'pricing' },
+  { key: 'alternates', label: 'Alternates & VE', icon: 'fork', was: 'Alternates / Value engineering', group: 'pricing', feature: 'options' },
+  { key: 'allowances', label: 'Allowances', icon: 'wallet', was: 'Allowances', group: 'pricing', feature: 'provisionalsums' },
+  { key: 'unit-prices', label: 'Unit prices', icon: 'tag', was: 'Unit prices', group: 'pricing', feature: 'unitrates' },
 ] as const
+/** Pages that only show when their feature is switched on (Setting feature.*). */
+export const pageOn = (p: object, f?: Record<string, boolean> | null) => { const k = (p as { feature?: string }).feature; return !k || !!f?.[k] }
 export type PageKey = typeof PROJECT_PAGES[number]['key']

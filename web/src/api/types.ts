@@ -22,7 +22,7 @@ export interface Benchmark { csiCode: string; lowPerSf: number; medianPerSf: num
 export interface Trade { tradeId: number; versionId: number; csiCode: string; codeId: number | null; tradeName: string; scopeNo: number; kitId: number | null; estimatorId: number | null; bidDueOn: string | null; lowestValue: number | null; carriedValue: number | null; adjustment: number; budgetValue: number | null; budgetDelta: number | null; buyoutPct: number | null; plugAmount: number | null; clientNote: string | null; teamNote: string | null; sortOrder: number | null; rowRev: number; changedAt: string; changedByName: string | null; zonesFromScope: boolean; bids: Bid[]; zoneShares: Record<string, number>; benchmark: Benchmark | null }
 export interface BidBoardData { version: Version; zones: Zone[]; trades: Trade[]; budgets: { budgetColumnId: number; budgetName: string; values: number }[]; baselineName: string | null; totalsHash: string | null }
 export interface TradeReply { trade: Trade; totalsHash: string; matched: boolean | null }
-export interface ScopeLine { lineId: number; section: 'baserequirement' | 'tradeitem' | 'zone'; sortKey: number; isHeading: boolean; lineText: string; desired: Desired | null; skipInAdjustments: boolean; indent: number; lineNote: string | null; zoneId: number | null; requirementLineId: number | null; rowRev: number }
+export interface ScopeLine { lineId: number; section: 'baserequirement' | 'tradeitem' | 'zone'; sortKey: number; isHeading: boolean; lineText: string; desired: Desired | null; skipInAdjustments: boolean; indent: number; lineNote: string | null; zoneId: number | null; requirementLineId: number | null; sumId?: number | null; rowRev: number }
 export interface ScopeAnswer { lineId: number; bidId: number; kind: AnswerKind; amount: number | null; answerText: string | null; formula: string | null; cellColour: 'red' | 'yellow' | 'green' | null; note: string | null; source: string; rowRev: number; changedAt: string; changedByName: string | null }
 export interface Invite { inviteId: number; bidId: number | null; partnerId: number; companyName: string; email: string; status: string; message?: string | null; sentAt: string | null; openedAt: string | null; submittedAt: string | null; expiresAt: string; pendingSubmissionId?: number | null; submissionId?: number | null; decision?: string | null }
 export interface ReadingRow { readingId: number; bidId: number; status: string; finishedAt: string | null; pending: number }
@@ -70,3 +70,25 @@ export interface Lookups {
   stages: string[]; bidStates: string[]; projectTypes: { projectType: string }[]
 }
 export interface PresenceRow { connectionId: string; userId: number; personName: string; initials: string; colour: string; projectId: number | null; versionId: number | null; pageKey: string | null; focusKind: string | null; focusKey: string | null; activity: string }
+
+// ---------------------------------------------------------------- alternates & VE, allowances, unit prices (same model as the original app)
+export interface ExtraIndirect { code: string; name: string; included: boolean; amount: number; budget?: number; pct?: number }
+export interface AlternateItem {
+  optionId: number; kind: 'option' | 'saving'; optionIndex: number; code: string; description: string; status: 'proposed' | 'accepted' | 'rejected'; quotedPct: number
+  comments: string | null; includeCodes: string[]; changedAt: string; changedByName: string | null; rowRev: number
+  total: number; subtotalQuoted: number; indirects: ExtraIndirect[]; totalQuoted: number
+  trades: { tradeId: number; csiCode: string; tradeName: string; amount: number; note: string | null; carried: string | null }[]
+}
+export interface AlternatesData { items: AlternateItem[]; directCost: number }
+export interface TradeAlternate { optionId: number; kind: 'option' | 'saving'; code: string; description: string; status: string; amount: number | null; note: string | null }
+export interface AllowanceTrade { tradeId: number; csiCode: string; tradeName: string; included: boolean; lineId: number | null; contribution: number; carried: string | null; priced: number; bidders: number }
+export interface AllowanceItem { sumId: number; kind: 'ownerprescribed' | 'miscellaneous'; index: number; description: string; tradeId: number | null; tradeName: string | null; changedAt: string; changedByName: string | null; rowRev: number; total: number; trades: AllowanceTrade[] }
+export interface AllowancesData { items: AllowanceItem[]; summary: { ownerPrescribed: number; miscellaneous: number; total: number } }
+export interface UnitPriceItem {
+  unitRateId: number; index: number; description: string; unit: string | null; quotedPct: number; comments: string | null; includeCodes: string[]
+  changedAt: string; changedByName: string | null; rowRev: number; selectedTradeId: number | null; price: number; discountedPrice: number; indirects: ExtraIndirect[]; quotedPrice: number
+  trades: { tradeId: number; csiCode: string; tradeName: string; price: number; note: string | null; isSelected: boolean }[]
+}
+export interface UnitPricesData { items: UnitPriceItem[] }
+export interface TradeUnitPrice { unitRateId: number; index: number; description: string; unit: string | null; price: number | null; note: string | null; isSelected: boolean }
+export interface Features { options: boolean; provisionalsums: boolean; unitrates: boolean }

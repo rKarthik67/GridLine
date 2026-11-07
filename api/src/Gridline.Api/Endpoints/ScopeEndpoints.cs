@@ -12,7 +12,7 @@ public static class ScopeEndpoints
     {
         public long LineId { get; set; } public string Section { get; set; } = ""; public decimal SortKey { get; set; } public bool IsHeading { get; set; }
         public string LineText { get; set; } = ""; public string? Desired { get; set; } public bool SkipInAdjustments { get; set; } public int Indent { get; set; }
-        public string? LineNote { get; set; } public long? ZoneId { get; set; } public long? RequirementLineId { get; set; } public int RowRev { get; set; }
+        public string? LineNote { get; set; } public long? ZoneId { get; set; } public long? RequirementLineId { get; set; } public long? SumId { get; set; } public int RowRev { get; set; }
     }
     public sealed class AnswerDto
     {
@@ -20,7 +20,7 @@ public static class ScopeEndpoints
         public string? AnswerText { get; set; } public string? Formula { get; set; } public string? CellColour { get; set; } public string? Note { get; set; }
         public string Source { get; set; } = "manual"; public int RowRev { get; set; } public DateTime ChangedAt { get; set; } public string? ChangedByName { get; set; }
     }
-    const string LineCols = "LineId, Section::text AS Section, SortKey, IsHeading, LineText, Desired::text AS Desired, SkipInAdjustments, Indent, LineNote, ZoneId, RequirementLineId, RowRev";
+    const string LineCols = "LineId, Section::text AS Section, SortKey, IsHeading, LineText, Desired::text AS Desired, SkipInAdjustments, Indent, LineNote, ZoneId, RequirementLineId, SumId, RowRev";
     const string AnswerCols = """
         a.LineId, a.BidId, a.Kind::text AS Kind, a.Amount, a.AnswerText, a.Formula, a.CellColour, a.Note, a.Source, a.RowRev, a.ChangedAt,
         (SELECT u.GivenName || ' ' || u.FamilyName FROM AppUser u WHERE u.UserId = a.ChangedBy) AS ChangedByName
@@ -171,6 +171,8 @@ public static class ScopeEndpoints
             var section = await w.Scalar<string>("SELECT Section::text FROM ScopeLine WHERE LineId = @id", new { id });
             if (section != "tradeitem" && (body.LineText is not null || body.IsHeading is not null || body.MoveAfterLineId is not null || body.MoveBeforeLineId is not null))
                 throw ApiException.Bad(section == "zone" ? "Zone lines follow the project's zones and can't be edited here." : "Base requirement text is locked. Change it in the requirement set.");
+            if (body.LineText is not null && await w.Scalar<long?>("SELECT SumId FROM ScopeLine WHERE LineId = @id", new { id }) is not null)
+                throw ApiException.Bad("This is an allowance line. Change its text on the Allowances page.");
             if (body.Indent is < 0 or > 6) throw ApiException.Bad("Indent must be between 0 and 6.");
             decimal? key = null;
             if (body.MoveAfterLineId is not null || body.MoveBeforeLineId is not null)
@@ -200,6 +202,8 @@ public static class ScopeEndpoints
             var s = await Access.Line(w, id);
             if (await w.Scalar<string>("SELECT Section::text FROM ScopeLine WHERE LineId = @id", new { id }) != "tradeitem")
                 throw ApiException.Bad("Only trade item lines can be deleted.");
+            if (await w.Scalar<long?>("SELECT SumId FROM ScopeLine WHERE LineId = @id", new { id }) is not null)
+                throw ApiException.Bad("This is an allowance line. Remove the allowance on the Allowances page.");
             await w.Exec("UPDATE ScopeLine SET ArchivedAt = now(), ChangedBy = @u WHERE LineId = @id", new { id, u = w.User.UserId });
             var (_, sum) = await Recalc.TradeAndSummary(w, s.TradeId!.Value, "line.delete");
             await w.Log(s.ProjectId, s.VersionId, "line.delete", "line", id);

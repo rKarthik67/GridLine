@@ -24,7 +24,7 @@ app md/<Page>/
   ...
 ```
 
-## Pages / tabs (78 tickets across 11 areas)
+## Pages / tabs (86 tickets across 14 areas)
 
 | Folder | Route / tab | Tickets |
 |---|---|---|
@@ -36,9 +36,12 @@ app md/<Page>/
 | [`CrewPlan`](CrewPlan/_index.md) | project tab `crew-plan` — Crew plan | 11 |
 | [`Costs`](Costs/_index.md) | project tabs `precon-services` + `overheads` (one component, two tabs) | 10 |
 | [`BidBoard`](BidBoard/_index.md) | project tab `bid-board` — Bid board | 12 |
-| [`ScopeMatch`](ScopeMatch/_index.md) | project tab `scope-match` — Scope match | 11 |
+| [`ScopeMatch`](ScopeMatch/_index.md) | project tab `scope-match` — Scope match | 12 |
 | [`BaseRequirements`](BaseRequirements/_index.md) | project tab `base-requirements` — Base requirements | 6 |
 | [`PriceRollUp`](PriceRollUp/_index.md) | project tab `price-roll-up` — Price roll-up (incl. the Estimator what-if modal) | 5 |
+| [`Alternates`](Alternates/_index.md) | project tab `alternates` — Alternates & VE | 3 |
+| [`Allowances`](Allowances/_index.md) | project tab `allowances` — Allowances | 2 |
+| [`UnitPrices`](UnitPrices/_index.md) | project tab `unit-prices` — Unit prices | 2 |
 
 ## Ticket format
 

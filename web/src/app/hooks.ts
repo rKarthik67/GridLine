@@ -1,10 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
-import type { Lookups, PresenceRow } from '../api/types'
+import type { Features, Lookups, PresenceRow } from '../api/types'
 import { usePresence } from '../components/Presence'
 import { useAuth } from './auth'
 import { tabId } from '../api/client'
 
+/** Switched-on features (Setting feature.*): alternates & VE, allowances, unit prices. */
+export const useFeatures = () => useQuery({ queryKey: ['features'], queryFn: () => api.get<Features>('/features'), staleTime: 5 * 60_000 })
 export const useLookups = () => useQuery({ queryKey: ['lookups'], queryFn: () => api.get<Lookups>('/lookups'), staleTime: 10 * 60_000 })
 
 /** Query key that ProjectLayout's live-change handler refreshes when anyone changes this version. */

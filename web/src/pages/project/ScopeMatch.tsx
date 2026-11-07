@@ -5,20 +5,21 @@ import { useSearchParams } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { calcTrade, parseAnswer } from '@gridline/calc'
 import { api } from '../../api/client'
-import type { BidBoardData, Bid, ProjectDetail, ScopeAnswer, ScopeData, ScopeLine, Trade, TradeReply, Version } from '../../api/types'
+import type { BidBoardData, Bid, ProjectDetail, TradeAlternate, TradeUnitPrice, ScopeAnswer, ScopeData, ScopeLine, Trade, TradeReply, Version } from '../../api/types'
 import { PageHead } from '../../components/Shell'
 import { Icon } from '../../components/Icon'
 import { AskText, ContextMenu, EditCell, ExportMenu, Failed, Loading, Menu, Modal, Seg, Tabs, Toggle, letterColour, toNum, useAction, type CtxItem } from '../../components/ui'
 import { useNavigate } from 'react-router'
 import { date, lane, money, pct } from '../../app/format'
-import { useLookups, useOthersFocus, vkey } from '../../app/hooks'
+import { useFeatures, useLookups, useOthersFocus, vkey } from '../../app/hooks'
+import { ALT_STATUS } from './Alternates'
 import { focus } from '../../live/hub'
 import { useToast } from '../../app/toast'
 import { AddBidModal, BidDrawer } from './BidBoard'
 import { DataGrid, pasteNum, type GCol, type GridEdit, type H } from '../../components/DataGrid'
 const ScratchPad = lazy(() => import('../../components/ScratchPad').then(m => ({ default: m.ScratchPad })))
 
-type Tab = 'items' | 'estimate' | 'scratch' | 'files' | 'quals' | 'inbox'
+type Tab = 'items' | 'estimate' | 'scratch' | 'files' | 'quals' | 'inbox' | 'alternates' | 'unitprices'
 const SECTIONS: [ScopeLine['section'], string, string | null][] = [
   ['baserequirement', 'Base requirements', 'Text comes from the base requirements checklist'],
   ['tradeitem', 'Trade items', null],
@@ -53,7 +54,7 @@ export default function ScopeMatch({ project, version }: { project: ProjectDetai
   const tradeId = Number(sp.get('trade')) || trades[0]?.tradeId
   const key = vkey('scope', vid, tradeId)
   const { data, error, isLoading } = useQuery({ queryKey: key, queryFn: () => api.get<ScopeData>(`/trades/${tradeId}/scope`), enabled: !!tradeId })
-  const [tab, setTab] = useState<Tab>('items'); const [sel, setSel] = useState<number | null>(null); const [cell, setCell] = useState<{ l: number; b: number } | null>(null)
+  const [tab, setTab] = useState<Tab>(() => (['alternates', 'unitprices', 'estimate', 'scratch', 'files', 'quals', 'inbox'].includes(sp.get('tab') ?? '') ? sp.get('tab') as Tab : 'items')); const feats = useFeatures().data; const [sel, setSel] = useState<number | null>(null); const [cell, setCell] = useState<{ l: number; b: number } | null>(null)
   const [q, setQ] = useState(''); const [hit, setHit] = useState(0); const [gaps, setGaps] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set()); const [addBid, setAddBid] = useState(false); const [bidOpen, setBidOpen] = useState<number | null>(null); const [picker, setPicker] = useState(false)
   const [ctx, setCtx] = useState<{ x: number; y: number; items: CtxItem[] } | null>(null); const [ask, setAsk] = useState<{ title: string; label: string; initial?: string; multiline?: boolean; number?: boolean; save(v: string): void } | null>(null)
@@ -150,7 +151,7 @@ export default function ScopeMatch({ project, version }: { project: ProjectDetai
       { label: 'Exclude from Scope Adjustments', onClick: () => lineSave(l, { skipInAdjustments: true }, 'Not counted in scope adjustments'), disabled: l.skipInAdjustments || l.isHeading },
       { label: 'Include in Scope Adjustments', onClick: () => lineSave(l, { skipInAdjustments: false }, 'Counted in scope adjustments'), disabled: !l.skipInAdjustments },
       ...colours, null,
-      { label: 'Delete row', icon: 'x', danger: true, onClick: async () => { if (await run(() => api.del(`/lines/${l.lineId}`), 'Row deleted')) { setSel(null); reload(); qc.invalidateQueries({ queryKey: vkey('bid-board', vid) }) } } }]
+      { label: l.sumId ? 'Delete row (allowance: use the Allowances page)' : 'Delete row', icon: 'x', danger: true, disabled: !!l.sumId, onClick: async () => { if (await run(() => api.del(`/lines/${l.lineId}`), 'Row deleted')) { setSel(null); reload(); qc.invalidateQueries({ queryKey: vkey('bid-board', vid) }) } } }]
     setCtx({ x: e.clientX, y: e.clientY, items })
   }
 
@@ -197,12 +198,14 @@ export default function ScopeMatch({ project, version }: { project: ProjectDetai
     <Toggle label="Gaps only" on={gaps} onChange={setGaps} />
     </div>
 
-  const tabsEl = <Tabs<Tab> value={tab} onChange={setTab} items={[['items', 'Scope items', countable.length], ['scratch', 'Scratch pad'], ['estimate', 'Internal estimate'], ['files', 'Files'], ['quals', 'Qualifications'], ['inbox', 'Bid inbox', data.invites.length + data.readings.length || null]]} />
+  const tabsEl = <Tabs<Tab> value={tab} onChange={setTab} items={[['items', 'Scope items', countable.length], ['scratch', 'Scratch pad'], ['estimate', 'Internal estimate'], ['files', 'Files'], ['quals', 'Qualifications'], ...(feats?.options ? [['alternates', 'Alternates & VE']] as [Tab, string][] : []), ...(feats?.unitrates ? [['unitprices', 'Unit prices']] as [Tab, string][] : []), ['inbox', 'Bid inbox', data.invites.length + data.readings.length || null]]} />
   if (tab !== 'items') return <>{header}<div className="card sl3">{tradebar}{tabsEl}<div className="cb">
     {tab === 'estimate' && <EstimateTab tradeId={t.tradeId} vid={vid} canEdit={canEdit} />}
     {tab === 'scratch' && <Suspense fallback={<Loading what="the scratch pad" />}><ScratchPad tradeId={t.tradeId} vid={vid} canEdit={canEdit} title={`${t.csiCode} ${t.tradeName}`} /></Suspense>}
     {tab === 'files' && <FilesTab tradeId={t.tradeId} vid={vid} canEdit={canEdit} bids={allBids} />}
     {tab === 'quals' && <QualsTab tradeId={t.tradeId} vid={vid} canEdit={canEdit} />}
+    {tab === 'alternates' && <TradeAlternatesTab tradeId={t.tradeId} vid={vid} canEdit={canEdit} />}
+    {tab === 'unitprices' && <TradeUnitPricesTab tradeId={t.tradeId} vid={vid} canEdit={canEdit} />}
     {tab === 'inbox' && <InboxTab data={data} vid={vid} canEdit={canEdit} onChanged={() => { reload(); qc.invalidateQueries({ queryKey: vkey('bid-board', vid) }) }} />}</div></div></>
 
   // ------------------------------------------------------------------ the spreadsheet grid (RevoGrid): rows, columns and edits
@@ -238,9 +241,9 @@ export default function ScopeMatch({ project, version }: { project: ProjectDetai
   const gcols: GCol<SRow>[] = [
     { prop: 'no', name: '#', size: 54, pin: 'start', drag: r => canEdit && r.kind === 'line' && r.l.section === 'tradeitem', value: r => r.kind === 'line' && !r.l.isHeading ? numbered.indexOf(r.l) + 1 : '',
       show: (r, h) => r.kind === 'line' && r.l.section === 'zone' ? h('i', { class: 'sw', style: { background: (r.l.zoneId != null && zoneOf.get(r.l.zoneId)?.colour) || '#27624d' } }) : r.kind === 'line' && !r.l.isHeading ? String(numbered.indexOf(r.l) + 1) : '', cls: () => 'code' },
-    { prop: 'item', name: 'Scope item', size: ITEM_W, pin: 'start', edit: r => r.kind === 'line' && r.l.section === 'tradeitem',
+    { prop: 'item', name: 'Scope item', size: ITEM_W, pin: 'start', edit: r => r.kind === 'line' && r.l.section === 'tradeitem' && !r.l.sumId,
       value: r => r.kind === 'line' ? r.l.lineText : r.kind === 'sec' ? r.name : r.kind === 'tot' ? ({ base: 'Base bid', adj: 'Scope adjustments', total: 'Total' })[r.which] : (remLine ? 'Zones total' : 'Not in a zone'),
-      tip: r => r.kind === 'line' ? [r.l.lineNote, r.l.section === 'baserequirement' ? 'Edit this text on the Base requirements page' : ''].filter(Boolean).join(' · ') || undefined : undefined,
+      tip: r => r.kind === 'line' ? [r.l.lineNote, r.l.section === 'baserequirement' ? 'Edit this text on the Base requirements page' : '', r.l.sumId ? 'Allowance line: change or remove it on the Allowances page' : ''].filter(Boolean).join(' · ') || undefined : undefined,
       cls: r => r.kind === 'line' ? `itm ind${Math.min(6, r.l.indent)}` : undefined,
       show: (r, h) => {
         if (r.kind === 'sec') return h('span', { class: 'gname' }, [h('button', { class: `tgl ${collapsed.has(r.sec) ? 'c' : ''}`, onClick: () => setCollapsed(s => { const n = new Set(s); n.has(r.sec) ? n.delete(r.sec) : n.add(r.sec); return n }) }, '▾'),
@@ -252,7 +255,7 @@ export default function ScopeMatch({ project, version }: { project: ProjectDetai
         return [l.indent > 0 ? h('span', { class: 'indm' }, '↳') : null, l.section !== 'tradeitem' ? h('span', { class: 'lk' }, '🔒') : null,
           h('span', { class: 'tx' }, l.lineText || (l.section === 'tradeitem' ? h('span', { class: 'mut' }, l.isHeading ? 'Header text' : 'Type the scope item') : '')),
           l.section === 'zone' ? h('small', { class: 'zmeta' }, [zoneMeta(l), l === remLine ? ' · remainder of base bid' : ''].filter(Boolean).join(' ')) : null,
-          l.skipInAdjustments ? h('span', { class: 'tag n' }, 'not in adj.') : null, isGap(l) ? h('span', { class: 'gapb' }, 'gap') : null, l.lineNote ? h('span', { class: 'nt', title: l.lineNote }, '✎') : null] } },
+          l.sumId ? h('span', { class: 'tag o', title: 'Allowance line (Allowances page)' }, 'Allowance') : null, l.skipInAdjustments ? h('span', { class: 'tag n' }, 'not in adj.') : null, isGap(l) ? h('span', { class: 'gapb' }, 'gap') : null, l.lineNote ? h('span', { class: 'nt', title: l.lineNote }, '✎') : null] } },
     { prop: 'desired', name: 'Desired', size: 120, pin: 'start', edit: r => r.kind === 'line' && r.l.section === 'tradeitem' && !r.l.isHeading,
       value: r => r.kind === 'line' && r.l.desired ? ({ included: 'Included', excluded: 'Excluded', price: 'Price', text: 'Text' })[r.l.desired] ?? '' : '',
       show: (r, h) => r.kind === 'line' && !r.l.isHeading ? (r.l.section === 'zone' ? h('span', { class: 'mut' }, r.l === remLine ? 'calculated' : '$ amount') : r.l.desired ? h('span', { class: `ch ${({ included: 'in', excluded: 'ex', price: 'pr', text: 'tx' })[r.l.desired]}` }, DES[r.l.desired]) : h('span', { class: 'mut' }, '–')) : '' },
@@ -283,7 +286,12 @@ export default function ScopeMatch({ project, version }: { project: ProjectDetai
       const r = c.row
       if (r.kind === 'tot' && r.which === 'base' && c.prop.startsWith('b')) { const b = bids.find(x => 'b' + x.bidId === c.prop)!; const n = pasteNum(c.value)
         if (c.value.trim() && n == null) { toast(`"${c.value}" is not an amount`, 'alert'); continue }
-        const x = await run(() => api.patch<TradeReply>(`/bids/${b.bidId}`, { ...(n == null ? { clearBase: true } : { baseAmount: n }), rowRev: b.rowRev }), 'Base bid saved'); if (x) { setData(d => ({ ...d, trade: x.trade })); syncBoard(x.trade) } continue }
+        // a typo like 156978321 for a $300k trade still saves, but say so
+        let odd: string | null = null
+        if (n != null && n > 0) { const others = bids.filter(x => x.bidId !== b.bidId && x.baseAmount != null && x.baseAmount > 0).map(x => x.baseAmount!).sort((a, c) => a - c)
+          const ref = others.length ? others[Math.floor(others.length / 2)] : t.budgetValue ?? null
+          if (ref && (n > ref * 5 || n < ref / 5)) odd = `Base bid saved, but check it: ${money(n)} is ${n > ref ? Math.round(n / ref) + '× more than' : Math.round(ref / n) + '× less than'} ${others.length ? 'the other bids' : 'the budget'} (${money(ref)})` }
+        const x = await run(() => api.patch<TradeReply>(`/bids/${b.bidId}`, { ...(n == null ? { clearBase: true } : { baseAmount: n }), rowRev: b.rowRev }), odd ? undefined : 'Base bid saved'); if (x) { if (odd) toast(odd, 'alert'); setData(d => ({ ...d, trade: x.trade })); syncBoard(x.trade) } continue }
       if (r.kind !== 'line') continue
       if (c.prop === 'item') { if (c.value.trim() !== r.l.lineText) lineSave(r.l, { lineText: c.value.trim() || ' ' }); continue }
       if (c.prop === 'desired') { const d = ['included', 'excluded', 'price', 'text'].find(k => k === c.value.trim().toLowerCase().replace(/^[✓✕$]\s*/, ''))
@@ -475,5 +483,49 @@ function QualsTab({ tradeId, vid, canEdit }: { tradeId: number; vid: number; can
     <div className="tb" style={{ border: 0, padding: 0 }}><b>Whole project</b><span className="muted" style={{ marginLeft: 8 }}>shown on every trade</span><span className="sp" />
       {canEdit && <button className="btn sm" onClick={async () => put(await run(() => api.post(`/trades/${tradeId}/qualifications`, { kind: 'qualification', qualText: 'New project qualification', projectWide: true })))}><Icon name="plus" size="s" />Project qualification</button>}</div>
     {list(data.project, true)}
+  </div>
+}
+
+// ------------------------------------------------------------------ Alternates & VE and Unit prices for this trade (was: trade scope → Alternates / Unit Prices)
+function TradeAlternatesTab({ tradeId, vid, canEdit }: { tradeId: number; vid: number; canEdit: boolean }) {
+  const { run } = useAction(); const qc = useQueryClient(); const nav = useNavigate(); const key = vkey('trade-alternates', vid, tradeId)
+  const { data } = useQuery({ queryKey: key, queryFn: () => api.get<TradeAlternate[]>(`/trades/${tradeId}/alternates`) })
+  if (!data) return <Loading what="alternates" />
+  async function save(optionId: number, body: { amount?: number; clearAmount?: boolean; note?: string }) {
+    const d = await run(() => api.put<TradeAlternate[]>(`/trades/${tradeId}/alternates`, [{ optionId, ...body }]), 'Saved')
+    if (d) { qc.setQueryData(key, d); qc.invalidateQueries({ queryKey: vkey('alternates', vid) }) }
+  }
+  const total = (k: string) => data.filter(a => a.kind === k).reduce((s, a) => s + (a.amount ?? 0), 0)
+  return <div>
+    <div className="tb" style={{ border: 0, padding: '0 0 8px' }}><p className="muted" style={{ margin: 0 }}>What this trade adds (alternates) or saves (VE, enter a negative amount) for each item. The quoted totals are on the Alternates & VE page.</p><span className="sp" />
+      <a className="lnk" onClick={() => nav('../alternates', { relative: 'path' })}>Open Alternates & VE</a></div>
+    <div className="gw"><table className="dg" style={{ width: '100%' }}><thead><tr><th style={{ width: 80 }}>Code</th><th style={{ width: 100 }}>Type</th><th>Description</th><th style={{ width: 100 }}>Status</th><th className="r" style={{ width: 150 }}>Amount</th><th style={{ width: 280 }}>Comments</th></tr></thead>
+      <tbody>{data.map(a => <tr key={a.optionId}>
+        <td><span className="code">{a.code}</span></td><td><span className={`tag ${a.kind === 'saving' ? 'o' : 'k'}`}>{a.kind === 'saving' ? 'VE' : 'Alternate'}</span></td>
+        <td style={{ whiteSpace: 'normal' }}>{a.description}</td><td><span className={`tag ${ALT_STATUS[a.status]?.[1] ?? 'n'}`}>{ALT_STATUS[a.status]?.[0] ?? a.status}</span></td>
+        <td>{canEdit ? <EditCell number value={a.amount} placeholder="–" style={{ textAlign: 'right' }} onSave={v => { const n = toNum(v); save(a.optionId, n == null ? { clearAmount: true } : { amount: n }) }} /> : <span className="num">{money(a.amount, 2)}</span>}</td>
+        <td>{canEdit ? <EditCell value={a.note} placeholder="Add a comment" onSave={v => save(a.optionId, { note: v })} /> : a.note}</td></tr>)}
+        {!data.length && <tr><td colSpan={6} className="mut">No alternates or VE ideas on this version yet. <a className="lnk" onClick={() => nav('../alternates', { relative: 'path' })}>Add one</a>.</td></tr>}</tbody>
+      {data.length > 0 && <tfoot><tr><td colSpan={4}>Alternates {money(total('option'), 2)} · VE {money(total('saving'), 2)}</td><td className="n"><b>{money(total('option') + total('saving'), 2)}</b></td><td /></tr></tfoot>}</table></div>
+  </div>
+}
+function TradeUnitPricesTab({ tradeId, vid, canEdit }: { tradeId: number; vid: number; canEdit: boolean }) {
+  const { run } = useAction(); const qc = useQueryClient(); const nav = useNavigate(); const key = vkey('trade-unit-prices', vid, tradeId)
+  const { data } = useQuery({ queryKey: key, queryFn: () => api.get<TradeUnitPrice[]>(`/trades/${tradeId}/unit-prices`) })
+  if (!data) return <Loading what="unit prices" />
+  async function save(unitRateId: number, body: { price?: number; clearPrice?: boolean; note?: string }) {
+    const d = await run(() => api.put<TradeUnitPrice[]>(`/trades/${tradeId}/unit-prices`, [{ unitRateId, ...body }]), 'Saved')
+    if (d) { qc.setQueryData(key, d); qc.invalidateQueries({ queryKey: vkey('unit-prices', vid) }) }
+  }
+  return <div>
+    <div className="tb" style={{ border: 0, padding: '0 0 8px' }}><p className="muted" style={{ margin: 0 }}>This trade's price per unit for each unit price. Pick which trade's price to carry on the Unit prices page.</p><span className="sp" />
+      <a className="lnk" onClick={() => nav('../unit-prices', { relative: 'path' })}>Open Unit prices</a></div>
+    <div className="gw"><table className="dg" style={{ width: '100%' }}><thead><tr><th style={{ width: 50 }}>#</th><th>Description</th><th style={{ width: 120 }}>Unit</th><th className="r" style={{ width: 150 }}>Price</th><th style={{ width: 280 }}>Note</th><th style={{ width: 100 }}>Status</th></tr></thead>
+      <tbody>{data.map(u => <tr key={u.unitRateId}>
+        <td className="code">{u.index}</td><td style={{ whiteSpace: 'normal' }}>{u.description}</td><td>{u.unit ?? <span className="mut">–</span>}</td>
+        <td>{canEdit ? <EditCell number value={u.price} placeholder="–" style={{ textAlign: 'right' }} onSave={v => { const n = toNum(v); save(u.unitRateId, n == null ? { clearPrice: true } : { price: n }) }} /> : <span className="num">{money(u.price, 2)}</span>}</td>
+        <td>{canEdit ? <EditCell value={u.note} placeholder="Add a note" onSave={v => save(u.unitRateId, { note: v })} /> : u.note}</td>
+        <td><span className={`tag ${u.isSelected ? 'g' : 'b'}`}>{u.isSelected ? 'Selected' : 'Proposed'}</span></td></tr>)}
+        {!data.length && <tr><td colSpan={6} className="mut">No unit prices on this version yet. <a className="lnk" onClick={() => nav('../unit-prices', { relative: 'path' })}>Add one</a>.</td></tr>}</tbody></table></div>
   </div>
 }

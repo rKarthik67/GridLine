@@ -11,7 +11,8 @@ import { Presence } from './Presence'
 import { debugEnabled, setDebug } from '../api/debug'
 
 export { PROJECT_PAGES } from '../app/pages'
-import { PAGE_GROUPS, PROJECT_PAGES } from '../app/pages'
+import { PAGE_GROUPS, PROJECT_PAGES, pageOn } from '../app/pages'
+import { useFeatures } from '../app/hooks'
 
 export const ADMIN_PAGES = [
   { key: 'company', label: 'Company', icon: 'company' },
@@ -25,7 +26,7 @@ export type AdminKey = typeof ADMIN_PAGES[number]['key']
 type ShellProject = { no: string; name: string; versionNo: number; stage: string; versions?: { versionId: number; versionNo: number }[] }
 
 export function Shell({ title, crumbs, children, project }: { title: string; crumbs?: ReactNode; children: ReactNode; project?: ShellProject }) {
-  const nav = useNavigate(); const { me, isAdmin } = useAuth()
+  const nav = useNavigate(); const { me, isAdmin } = useAuth(); const feats = useFeatures().data
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('gridline.side') === 'collapsed' } catch { return false } })
   const [mobileOpen, setMobileOpen] = useState(false); const [palette, setPalette] = useState(false)
   const { versionNo } = useParams()
@@ -57,7 +58,7 @@ export function Shell({ title, crumbs, children, project }: { title: string; cru
             <NavLink to="/projects/new" data-was="New project"><Icon name="plus" /><span>Start a project</span></NavLink>
           </div></div>
           {project && PAGE_GROUPS.map(g => <div className="ng" key={g.key}><div className="nh">{g.key === 'project' && <Icon name="build" size="s" />}<span>{g.key === 'project' ? project.name : g.label}</span></div><div className="nl">
-            {PROJECT_PAGES.filter(p => p.group === g.key).map(p => <NavLink key={p.key} to={`${base}/${p.key}`} data-was={p.was}><Icon name={p.icon} /><span>{p.label}</span></NavLink>)}
+            {PROJECT_PAGES.filter(p => p.group === g.key && pageOn(p, feats as unknown as Record<string, boolean>)).map(p => <NavLink key={p.key} to={`${base}/${p.key}`} data-was={p.was}><Icon name={p.icon} /><span>{p.label}</span></NavLink>)}
           </div></div>)}
           {isAdmin && !project && <div className="ng"><div className="nh"><span>Administration</span></div><div className="nl">
             {ADMIN_PAGES.map(p => <NavLink key={p.key} to={`/admin/${p.key}`}><Icon name={p.icon} /><span>{p.label}</span></NavLink>)}
@@ -87,13 +88,13 @@ export function Shell({ title, crumbs, children, project }: { title: string; cru
 
 /** Ctrl+K: jump to any project, page or admin section by typing a few letters. */
 function Palette({ project, onClose }: { project?: ShellProject; onClose(): void }) {
-  const nav = useNavigate(); const { isAdmin } = useAuth(); const { versionNo } = useParams()
+  const nav = useNavigate(); const { isAdmin } = useAuth(); const { versionNo } = useParams(); const feats = useFeatures().data
   const [q, setQ] = useState(''); const [cur, setCur] = useState(0); const ref = useRef<HTMLInputElement>(null)
   const projects = useQuery({ queryKey: ['projects'], queryFn: () => api.get<ProjectRow[]>('/projects'), staleTime: 60_000 })
   type Item = { kind: 'project' | 'page' | 'admin'; label: string; hint: string; icon: string; to: string }
   const items = useMemo<Item[]>(() => {
     const base = project ? `/p/${encodeURIComponent(project.no)}/v/${versionNo ?? project.versionNo}` : ''
-    const pages: Item[] = project ? PROJECT_PAGES.map(p => ({ kind: 'page', label: p.label, hint: project.name, icon: p.icon, to: `${base}/${p.key}` })) : []
+    const pages: Item[] = project ? PROJECT_PAGES.filter(p => pageOn(p, feats as unknown as Record<string, boolean>)).map(p => ({ kind: 'page', label: p.label, hint: project.name, icon: p.icon, to: `${base}/${p.key}` })) : []
     const desk: Item[] = [{ kind: 'page', label: 'Portfolio', hint: 'My desk', icon: 'folder', to: '/projects' }, { kind: 'page', label: 'Start a project', hint: 'My desk', icon: 'plus', to: '/projects/new' }, { kind: 'page', label: 'Account & password', hint: 'My desk', icon: 'team', to: '/account' }]
     const admin: Item[] = isAdmin ? ADMIN_PAGES.map(p => ({ kind: 'admin', label: p.label, hint: 'Administration', icon: p.icon, to: `/admin/${p.key}` })) : []
     const projs: Item[] = (projects.data ?? []).map(p => ({ kind: 'project', label: p.projectName, hint: `${p.projectNo} · ${cap(p.stage)}${p.clientName ? ' · ' + p.clientName : ''}`, icon: 'build', to: `/p/${encodeURIComponent(p.projectNo)}/v/${p.primaryVersionNo ?? 1}/bid-board` }))
