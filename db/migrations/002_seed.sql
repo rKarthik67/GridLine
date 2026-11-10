@@ -1,4 +1,4 @@
-BEGIN;
+-- (transaction is opened by the Migrator; no BEGIN here)
 SET client_min_messages = warning;
 SET search_path = gridline, public;
 
@@ -2700,4 +2700,4 @@ UPDATE Trade t SET LowestValue = (SELECT min(TotalAmount) FROM Bid WHERE TradeId
   CarriedValue = coalesce((SELECT TotalAmount + t.Adjustment FROM Bid WHERE TradeId=t.TradeId AND IsCarried), t.PlugAmount);
 UPDATE Trade SET BudgetDelta = CarriedValue - BudgetValue;
 
-COMMIT;
+-- (committed by the Migrator; no COMMIT here)
